@@ -317,7 +317,9 @@ list.addEventListener('keydown', (e) => {
 
 list.addEventListener('click', (e) => {
   const opt = e.target.closest('[role="option"]');
-  if (opt) setActive(options().indexOf(opt), 'reread');
+  if (!opt) return;
+  list.focus(); // puts a screen reader into focus mode, so letter keys work
+  setActive(options().indexOf(opt), 'reread');
 });
 
 // ---------- Programs ----------

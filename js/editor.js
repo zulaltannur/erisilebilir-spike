@@ -36,6 +36,10 @@ export class Editor {
     this.list.addEventListener('click', (e) => {
       const opt = e.target.closest('[role="option"]');
       if (!opt) return;
+      // A screen reader in browse mode "clicks" the line. Moving real focus to the
+      // list puts the screen reader into focus mode, so the letter keys (A, P, R)
+      // reach the app from now on.
+      this.list.focus();
       this.setActive(Number(opt.dataset.index));
       this.activate();
     });
