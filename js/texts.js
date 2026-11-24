@@ -53,8 +53,6 @@ export const T = {
       : `Sorun giderme: ${r.name || 'isimsiz cihaz'}. Yeni protokol: ${r.app3 ? 'var' : 'yok'}. Eski protokol: ${r.lwp ? 'var' : 'yok'}.`,
   bluetoothOff:
     'Bilgisayarın Bluetooth\'u kapalı görünüyor. Windows ayarlarından Bluetooth\'u açıp tekrar deneyin.',
-  oldFirmware:
-    'Hub bulundu ama yazılımı eski. Hub\'ı kabloyla bilgisayara takıp spike.legoeducation.com adresindeki güncelleme aracıyla güncelleyin, sonra tekrar deneyin.',
   connectFailed: (msg) => `Bağlanamadı. ${msg} Hub'ın açık olduğundan emin olup tekrar deneyin.`,
   disconnected: 'Hub bağlantısı koptu.',
   notConnected: 'Önce Hub\'a bağlanın.',

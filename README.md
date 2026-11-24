@@ -45,11 +45,12 @@ npm test                                   # protokol testleri
 CHROME_PATH=/yol/chrome python3 test/e2e.py # sahte Hub ile uçtan uca test ve erişilebilirlik taraması
 ```
 
-Uçtan uca test, gerçek protokolü konuşan sahte bir Hub (`test/fake_hub.js`) kullanır ve sayfayı axe-core ile WCAG 2.2 AA kurallarına göre tarar.
+Uçtan uca test, iki protokolü de konuşabilen sahte bir Hub (`test/fake_hub.js`) kullanır ve sayfayı axe-core ile WCAG 2.2 AA kurallarına göre tarar.
 
 ## Mimari
 
-- `js/cobs.js`, `js/crc.js`, `js/protocol.js`: LEGO'nun yayımladığı SPIKE App 3 Bluetooth protokolü ([belgeler](https://lego.github.io/spike-prime-docs)).
+- `js/lwp.js`: SPIKE Essential'ın küçük Hub'ının konuştuğu LEGO Wireless Protocol 3 ([belgeler](https://lego.github.io/lego-ble-wireless-protocol-docs/)). Komutlar Hub'a canlı gönderilir.
+- `js/cobs.js`, `js/crc.js`, `js/protocol.js`: SPIKE Prime Hub'ının SPIKE App 3 protokolü ([belgeler](https://lego.github.io/spike-prime-docs)). Programlar Hub'a yüklenir.
 - `js/hub.js`: Bağlantı, istek-yanıt sırası, program yükleme.
 - `js/announcer.js`: Ekran okuyucu bildirimleri ve olay geçmişi.
 - `js/texts.js`: Arayüzdeki bütün Türkçe metinler. Çeviri için tek dosya.

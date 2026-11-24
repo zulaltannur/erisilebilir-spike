@@ -4,6 +4,7 @@
 import { pack, FrameDecoder } from './cobs.js';
 import { crc32 } from './crc.js';
 import * as P from './protocol.js';
+import { LwpSession, LWP_CHAR_UUID } from './lwp.js';
 
 const REQUEST_TIMEOUT_MS = 5000;
 
@@ -101,16 +102,27 @@ export class Hub extends EventTarget {
     }
 
     const server = await this.device.gatt.connect();
-    let service;
+    let service = null;
     try {
       service = await server.getPrimaryService(P.SERVICE_UUID);
     } catch {
-      // Found the Hub, but it speaks the old protocol: its firmware must be updated.
-      this.device.gatt.disconnect();
-      const err = new Error('old-firmware');
-      err.name = 'OldFirmwareError';
-      throw err;
+      service = null;
     }
+
+    if (!service) {
+      // SPIKE Essential (and other Powered Up hubs) speak LEGO Wireless Protocol 3.
+      const lwpService = await server.getPrimaryService(P.LWP_SERVICE_UUID);
+      const ch = await lwpService.getCharacteristic(LWP_CHAR_UUID);
+      this.protocol = 'lwp';
+      this.info = null;
+      this.name = this.device.name || '';
+      this.lwp = new LwpSession(ch, (type, detail) => this._emit(type, detail));
+      await this.lwp.start();
+      return;
+    }
+
+    this.protocol = 'app3';
+    this.lwp = null;
     this.rx = await service.getCharacteristic(P.RX_UUID);
     this.tx = await service.getCharacteristic(P.TX_UUID);
     this.decoder.reset();
@@ -218,7 +230,18 @@ export class Hub extends EventTarget {
   }
 
   async stopProgram(slot = 0) {
+    if (this.protocol === 'lwp') return this.lwp.stopAll();
     await this.request(P.programFlowRequest(true, slot), P.MSG.PROGRAM_FLOW_RES);
+  }
+
+  // Turn the motor on a port one full turn. The hub reports progress with
+  // '@BASLA', '@ADIM 1', '@BITTI' console lines on both protocols.
+  async runMotorTurn(portIndex, makeProgram, slot = 0) {
+    if (this.protocol === 'lwp') {
+      this.lwp.motorDegrees(portIndex, 360); // resolves when done; events report progress
+      return;
+    }
+    await this.uploadAndRun(makeProgram(portIndex), slot);
   }
 
   // ---------- Receiving ----------
@@ -266,6 +289,10 @@ export class Hub extends EventTarget {
   }
 
   _onDisconnected() {
+    if (this.lwp) {
+      this.lwp.stop();
+      this.lwp = null;
+    }
     if (this.pending) {
       clearTimeout(this.pending.timer);
       this.pending.reject(new Error('Bağlantı koptu.'));

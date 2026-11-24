@@ -5,8 +5,7 @@ export const SERVICE_UUID = '0000fd02-0000-1000-8000-00805f9b34fb';
 export const RX_UUID = '0000fd02-0001-1000-8000-00805f9b34fb'; // hub receives
 export const TX_UUID = '0000fd02-0002-1000-8000-00805f9b34fb'; // hub transmits
 
-// Hubs with older firmware (SPIKE App 2 era) advertise the LEGO Wireless Protocol instead.
-// We list them too, so we can tell the user that a Hub update is needed.
+// SPIKE Essential's Small Hub speaks LEGO Wireless Protocol 3 instead (see lwp.js).
 export const LWP_SERVICE_UUID = '00001623-1212-efde-1623-785feabcd123';
 
 export const MSG = {

@@ -91,8 +91,68 @@
     },
   };
   device.gatt = gatt;
+  // ---- "?lwp": behave like a SPIKE Essential Small Hub (LEGO Wireless Protocol 3) ----
+  const LWP = location.search.includes('lwp');
+  window.__lwpSent = [];
+  const lwpChar = new EventTarget();
+  const lwpSend = (bytes) => {
+    const b = Uint8Array.from([bytes.length + 2, 0, ...bytes]);
+    lwpChar.value = new DataView(b.buffer);
+    lwpChar.dispatchEvent(new Event('characteristicvaluechanged'));
+  };
+  const lwpState = { abs: 0, lastAbs: null, color: -1, subs: new Set() };
+  const lwpPushValues = () => {
+    if (lwpState.subs.has(0)) {
+      const v = new DataView(new ArrayBuffer(2));
+      const abs = ((((state.motorPos + 180) % 360) + 360) % 360) - 180;
+      v.setInt16(0, abs, true);
+      if (abs !== lwpState.lastAbs) { lwpState.lastAbs = abs; lwpSend([0x45, 0, ...new Uint8Array(v.buffer)]); }
+    }
+    if (lwpState.subs.has(1) && state.color !== lwpState.color) {
+      lwpState.color = state.color;
+      lwpSend([0x45, 1, state.color & 0xff]);
+    }
+  };
+  let lwpColorAttached = true;
+  lwpChar.startNotifications = async () => {
+    setTimeout(() => {
+      lwpSend([0x04, 0, 1, 0x41, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // motor on A
+      lwpSend([0x04, 1, 1, 0x3d, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // color sensor on B
+      lwpSend([0x04, 0x32, 1, 0x17, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // internal port, ignored
+      setInterval(() => {
+        lwpPushValues();
+        if (state.colorAttached !== lwpColorAttached) {
+          lwpColorAttached = state.colorAttached;
+          if (lwpColorAttached) lwpSend([0x04, 1, 1, 0x3d, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+          else { lwpSend([0x04, 1, 0]); lwpState.subs.delete(1); lwpState.color = -2; }
+        }
+      }, 50);
+    }, 50);
+    return lwpChar;
+  };
+  lwpChar.writeValueWithoutResponse = async (buf) => {
+    const m = new Uint8Array(buf);
+    window.__lwpSent.push(Array.from(m));
+    const type = m[2];
+    if (type === 0x01 && m[3] === 0x06 && m[4] === 0x05) lwpSend([0x01, 0x06, 0x06, state.battery]);
+    if (type === 0x41) { lwpState.subs.add(m[3]); lwpState.lastAbs = null; lwpState.color = -2; }
+    if (type === 0x81) {
+      const port = m[3];
+      if (m[5] === 0x0b) {
+        lwpSend([0x82, port, 0x01]);
+        setTimeout(() => { state.motorPos += 360; lwpSend([0x82, port, 0x0a]); }, 800);
+      } else if (m[5] === 0x51) {
+        lwpSend([0x82, port, 0x0a]);
+      }
+    }
+  };
+
   const server = {
-    async getPrimaryService() {
+    async getPrimaryService(uuid) {
+      if (LWP) {
+        if (uuid.startsWith('0000fd02')) throw new Error('No Services matching UUID found');
+        return { async getCharacteristic() { return lwpChar; } };
+      }
       return { async getCharacteristic(uuid) { return uuid.includes('0001') ? rx : tx; } };
     },
   };

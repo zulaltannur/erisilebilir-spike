@@ -121,9 +121,6 @@ async function connect({ forceChooser = false } = {}) {
       say(T.connectCancelled);
     } else if (err && err.name === 'NotNearbyError') {
       say(T.knownNotNearby, { urgent: true });
-    } else if (err && err.name === 'OldFirmwareError') {
-      play('error');
-      say(T.oldFirmware, { urgent: true });
     } else {
       play('error');
       say(T.connectFailed(err && err.message ? err.message : ''), { urgent: true });
@@ -330,7 +327,7 @@ async function runMotorTest() {
   say(T.programStarting);
   try {
     state.programRunning = true;
-    await hub.uploadAndRun(motorOneTurnProgram(i), PROGRAM_SLOT);
+    await hub.runMotorTurn(i, motorOneTurnProgram, PROGRAM_SLOT);
   } catch (err) {
     state.programRunning = false;
     play('error');
