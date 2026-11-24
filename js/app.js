@@ -384,7 +384,8 @@ const runner = new Runner({
     editor.setRunning(-1);
     if (completed) {
       play('programEnd');
-      say(T.programDone);
+      const spinning = hub.lwp ? [...hub.lwp.spinning] : [];
+      say(spinning.length ? T.programDoneSpinning(spinning.map((p) => PORT_NAMES[p]).join(' ve ')) : T.programDone);
     } else {
       say(T.programStopped, { urgent: true });
     }
@@ -416,12 +417,20 @@ function runProgram() {
   runner.run(editor.program);
 }
 
+// Stop always means: the robot must stand still now. Even when no program is
+// running, motors may still be turning (for example after "Motoru sürekli döndür").
 async function stopProgram() {
   if (runner.running) {
     runner.stop();
     return;
   }
   if (!hub.connected) return;
+  if (hub.protocol === 'lwp') {
+    const wasSpinning = hub.lwp.spinning.size > 0;
+    await hub.lwp.stopAll();
+    say(wasSpinning ? T.motorsStopped : T.nothingRunning, { urgent: wasSpinning });
+    return;
+  }
   if (!state.programRunning) {
     say(T.nothingRunning);
     return;
@@ -488,7 +497,8 @@ const isTextField = (el) =>
 document.addEventListener('keydown', (e) => {
   // Escape always stops the robot. We don't prevent default, so open dialogs still close.
   if (e.key === 'Escape') {
-    if (state.programRunning || runner.running) stopProgram();
+    const spinning = hub.lwp && hub.lwp.spinning.size > 0;
+    if (state.programRunning || runner.running || spinning) stopProgram();
     return;
   }
 
@@ -623,6 +633,24 @@ $('ses-ayari').addEventListener('change', (e) => setSoundsEnabled(e.target.check
 
 $('baglanti-yardim').textContent = Hub.isSupported() ? T.connectHelp : T.notSupported;
 setConnectedUI(false);
+
+// ---------- New version notice ----------
+// The page tells the user once when a newer version has been published.
+const APP_VERSION = '2026-11-25.3';
+let versionNoticeGiven = false;
+async function checkForUpdate() {
+  try {
+    const res = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const { version } = await res.json();
+    if (version && version !== APP_VERSION && !versionNoticeGiven) {
+      versionNoticeGiven = true;
+      say(T.newVersion);
+    }
+  } catch {
+    /* offline or file missing: ignore */
+  }
+}
+setInterval(checkForUpdate, 120000);
 
 // Test hook: lets the automated tests load programs directly.
 window.__erisilebilir = { editor };

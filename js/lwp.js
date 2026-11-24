@@ -60,6 +60,7 @@ export class LwpSession {
     this.rgbPort = null;
     this.ports = new Map(); // port -> { kind, type, ...values }
     this.pending = new Map(); // port -> { resolve, timer, sawProgress }
+    this.spinning = new Set(); // motors started with "keep turning" and not stopped yet
     this.writeQueue = Promise.resolve();
     this.snapshotTimer = null;
     this._onValue = (e) => this._onData(e.target.value);
@@ -129,14 +130,18 @@ export class LwpSession {
   }
 
   runForDegrees(port, degrees, speed) {
+    this.spinning.delete(port);
+    // Allow plenty of time: about 6 degrees per second per 1% speed, times two, plus 5 s.
+    const timeoutMs = (Math.abs(degrees) / Math.max(1, Math.abs(speed) * 6)) * 2000 + 5000;
     const d = new DataView(new ArrayBuffer(4));
     d.setInt32(0, Math.abs(Math.round(degrees)), true);
     const sp = Math.sign(degrees || 1) * Math.abs(speed);
     // StartSpeedForDegrees: degrees, speed, max power, end state (127 = brake), profile
-    return this._command(port, 0x0b, [...new Uint8Array(d.buffer), sp & 0xff, 100, 127, 0]);
+    return this._command(port, 0x0b, [...new Uint8Array(d.buffer), sp & 0xff, 100, 127, 0], { timeoutMs });
   }
 
   runForTime(port, ms, speed) {
+    this.spinning.delete(port);
     const d = new DataView(new ArrayBuffer(2));
     d.setInt16(0, Math.min(32000, Math.round(ms)), true);
     // StartSpeedForTime: time, speed, max power, end state, profile
@@ -146,11 +151,13 @@ export class LwpSession {
   }
 
   startSpeed(port, speed) {
+    this.spinning.add(port);
     // StartSpeed: speed, max power, profile. Runs until stopped.
     return this._command(port, 0x07, [speed & 0xff, 100, 0], { wait: false });
   }
 
   brake(port) {
+    this.spinning.delete(port);
     // WriteDirectModeData, mode 0 = StartPower, 127 = brake
     return this._command(port, 0x51, [0x00, 127], { wait: false });
   }

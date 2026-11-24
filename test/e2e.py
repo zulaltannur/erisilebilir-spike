@@ -269,6 +269,22 @@ with sync_playwright() as p:
     goto = [m for m in page.evaluate('window.__lwpSent') if len(m) > 9 and m[2] == 0x81 and m[5] == 0x0b][-1]
     expect('Program bitti.' in out, 'motoru konuma getir ' + json.dumps(goto))
 
+    # A motor left turning: the end message says so, and Durdur stops it even with no program running
+    out = run_program([{'type': 'motorStart', 'port': 0, 'direction': 'cw'}, {'type': 'speed', 'percent': 70}], 600)
+    expect(any('Motor A hâlâ dönüyor' in x for x in out), 'sürekli motor: program sonunda uyarı ' + json.dumps(out, ensure_ascii=False))
+    before = len(page.evaluate('window.__lwpSent'))
+    page.click('#program-durdur-btn')
+    page.wait_for_timeout(300)
+    brakes = [m for m in page.evaluate('window.__lwpSent')[before:] if m[2] == 0x81 and m[5:] == [0x51, 0, 127]]
+    expect(brakes and has('Motorlar durduruldu.'), 'Durdur: program bitmiş olsa da motoru durdurdu')
+    page.click('#program-durdur-btn')
+    page.wait_for_timeout(200)
+    expect(has('Şu an çalışan bir program yok, motorlar da duruyor.'), 'Durdur: duran robotta doğru mesaj')
+
+    # A long motor turn does not time out early
+    out = run_program([{'type': 'motorRun', 'port': 0, 'amount': 10, 'unit': 'rotations', 'direction': 'cw'}, {'type': 'sound', 'sound': 'beep'}], 2500)
+    expect('Adım 2: Ses çal: bip' in out and 'Program bitti.' in out, 'sıralı: uzun motor komutundan sonra devam etti')
+
     out = run_program([{'type': 'speak', 'text': 'Merhaba'}], 2500)
     expect(page.evaluate('window.__lastSound') == 'speak:Merhaba' and 'Program bitti.' in out, 'bilgisayar konuştu')
 

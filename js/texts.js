@@ -85,7 +85,12 @@ export const T = {
   noMotorAt: (p, other) =>
     other ? `Port ${da(p)} motor yok. Motor Port ${da(other)}.` : `Port ${da(p)} motor yok. Önce bir motor takın.`,
   motorTurnStep: (p) => `Motor ${p} bir tur dönüyor`,
-  nothingRunning: 'Şu an çalışan bir program yok.',
+  nothingRunning: 'Şu an çalışan bir program yok, motorlar da duruyor.',
+  motorsStopped: 'Motorlar durduruldu.',
+  newVersion:
+    'Uygulamanın yeni bir sürümü yayımlandı. Hazır olduğunuzda Ctrl, Shift ve R tuşlarıyla sayfayı yenileyin; Hub bağlantısını sonra yeniden kurun.',
+  programDoneSpinning: (ports) =>
+    `Program bitti. Motor ${ports} hâlâ dönüyor. Durdurmak için Escape tuşuna ya da Durdur düğmesine basın.`,
   programEmpty: 'Program boş. Önce A tuşuyla ya da Komut ekle düğmesiyle komut ekleyin.',
   programNeedsEssential: 'Program şimdilik sadece SPIKE Essential Hub\'ında çalışıyor.',
   programRound: (r, t) => (t ? `Tekrar: ${r}. tur, ${t} turdan.` : `Sonsuz tekrar: ${r}. tur.`),
