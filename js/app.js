@@ -35,6 +35,23 @@ const state = {
 
 // ---------- Connection ----------
 
+// Chrome's pairing window is not read by screen readers. While it is open we guide
+// with sounds: a tick every second while Chrome scans, then a bell meaning
+// "the Hub should be in the list now: press Down arrow, then Enter".
+// The bell repeats every 5 seconds until the window closes.
+const PAIRING_SCAN_SECONDS = 4;
+function startPairingCues() {
+  let seconds = 0;
+  const id = setInterval(() => {
+    seconds += 1;
+    if (seconds < PAIRING_SCAN_SECONDS) play('tick', { essential: true });
+    else if ((seconds - PAIRING_SCAN_SECONDS) % 5 === 0) play('ready', { essential: true });
+    if (seconds > 60) clearInterval(id);
+  }, 1000);
+  play('tick', { essential: true });
+  return () => clearInterval(id);
+}
+
 function setConnectedUI(connected) {
   $('baglan-btn').hidden = connected;
   $('kes-btn').hidden = !connected;
@@ -80,7 +97,12 @@ async function connect({ forceChooser = false } = {}) {
       if (!ok) throw lastErr;
     } else {
       say(T.connecting);
-      await hub.connect();
+      const stopCues = startPairingCues();
+      try {
+        await hub.connect();
+      } finally {
+        stopCues();
+      }
     }
     state.awaitingFirstSnapshot = true;
     setConnectedUI(true);
@@ -433,9 +455,13 @@ $('yardim-btn').addEventListener('click', () => $('yardim-dialog').showModal());
 $('tani-btn').addEventListener('click', async () => {
   if (!Hub.isSupported()) return say(T.notSupported, { urgent: true });
   say(T.pairHelp);
+  const stopCues = startPairingCues();
   try {
-    say(T.diagnoseResult(await Hub.diagnose()));
+    const result = await Hub.diagnose();
+    stopCues();
+    say(T.diagnoseResult(result));
   } catch (err) {
+    stopCues();
     if (err && err.message) announcer.addToLog(`Teknik ayrıntı: ${err.name}: ${err.message}`);
     if (err && err.name === 'NotFoundError') say(T.connectCancelled);
     else say(T.connectFailed(err && err.message ? err.message : ''), { urgent: true });

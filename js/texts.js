@@ -36,9 +36,8 @@ export const T = {
   notSupported:
     'Bu tarayıcı Bluetooth bağlantısını desteklemiyor. Lütfen bilgisayarda Google Chrome ya da Microsoft Edge kullanın. iPhone ve iPad şu an desteklenmiyor.',
   connectHelp:
-    'Hub\'ın üzerinde tek bir düğme var. Hub\'ı açmak için bu düğmeye bir kez basın. Sonra bu sayfadaki Bağlan düğmesine basın. Chrome bir liste açar. Bu listede sadece LEGO Hub\'ları görünür; ekran okuyucu adını okumasa bile listedeki satır Hub\'dır. Aşağı ok tuşuyla satırı seçin, Tab tuşuyla Eşle düğmesine gidin ve Enter\'a basın.',
-  connecting:
-    'Chrome bir liste açıyor. Bu listede sadece LEGO Hub\'ları görünür. Ekran okuyucu Hub\'ın adını okumayabilir. Aşağı ok tuşuyla ilk satırı seçin, sonra Tab tuşuyla Eşle düğmesine gidip Enter\'a basın.',
+    'Hub\'ın üzerinde tek bir düğme var. Hub\'ı açmak için bu düğmeye bir kez basın. Sonra Bağlan düğmesine basın. Chrome bir eşleme penceresi açar; ekran okuyucu bu penceredeki listeyi okumayabilir, bu yüzden size sesle yol gösteririz. Önce birkaç tık sesi duyacaksınız. Ardından zil sesi gelince Aşağı ok tuşuna, sonra Enter tuşuna basın. Bağlantı kurulunca Hub bağlandı diye okunur. Bu işlem sadece ilk seferde gerekir.',
+  connecting: 'Eşleme penceresi açılıyor. Zil sesini bekleyin; sonra Aşağı ok ve Enter.',
   connected: (name, battery, ports) =>
     `Hub bağlandı: ${name || 'isimsiz Hub'}.${battery != null ? ` Pil yüzde ${battery}.` : ''}${ports ? ` ${ports}.` : ''}`,
   connectingKnown: (name) =>
@@ -47,8 +46,7 @@ export const T = {
     'Kayıtlı Hub bulunamadı. Hub\'ın üzerindeki düğmeye basıp açın ve tekrar Bağlan\'a basın. Başka bir Hub kullanacaksanız Yeni Hub eşle düğmesine basın.',
   connectCancelled:
     'Hub seçilmedi. Listede Hub görünmediyse: Hub\'ın açık olduğundan emin olun ve LEGO uygulaması açıksa kapatın, çünkü Hub aynı anda tek bir uygulamaya bağlanabilir. Sonra tekrar Bağlan düğmesine basın. Yine görünmezse Ayarlar bölümündeki Sorun giderme düğmesini deneyin.',
-  pairHelp:
-    'Chrome\'un açtığı pencerede Eşle düğmesi, listeden bir cihaz seçilene kadar pasif kalır. Liste boşsa Chrome Hub\'ı göremiyor demektir.',
+  pairHelp: 'Pencere açılıyor. Zil sesinden sonra Aşağı ok tuşuyla cihazları gezin ve Enter ile seçin.',
   diagnoseResult: (r) =>
     r.error
       ? `Sorun giderme: ${r.name || 'isimsiz cihaz'} seçildi ama bağlanılamadı. ${r.error}`

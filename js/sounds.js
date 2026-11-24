@@ -26,12 +26,16 @@ const PATTERNS = {
   programStart: () => { tone(660, 0, 0.1); },
   programEnd: () => { tone(660, 0, 0.1); tone(880, 0.11, 0.1); tone(1047, 0.22, 0.16); },
   error: () => { tone(220, 0, 0.25, 'square', 0.08); },
+  // Guided pairing: ticks while Chrome scans, then a bell = "press Down, then Enter".
+  tick: () => { tone(1400, 0, 0.03, 'square', 0.06); },
+  ready: () => { tone(784, 0, 0.12); tone(988, 0.13, 0.12); tone(1175, 0.26, 0.12); tone(1568, 0.39, 0.3); },
   attach: () => { tone(988, 0, 0.08); },
   detach: () => { tone(392, 0, 0.08); },
 };
 
-export function play(name) {
-  if (!enabled || !PATTERNS[name]) return;
+// essential = true plays even when alert sounds are turned off (pairing guidance).
+export function play(name, { essential = false } = {}) {
+  if ((!enabled && !essential) || !PATTERNS[name]) return;
   try {
     if (!ctx) ctx = new AudioContext();
     if (ctx.state === 'suspended') ctx.resume();
