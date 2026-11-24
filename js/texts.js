@@ -36,8 +36,9 @@ export const T = {
   notSupported:
     'Bu tarayıcı Bluetooth bağlantısını desteklemiyor. Lütfen bilgisayarda Google Chrome ya da Microsoft Edge kullanın. iPhone ve iPad şu an desteklenmiyor.',
   connectHelp:
-    'Hub\'ın üzerinde tek bir düğme var. Hub\'ı açmak için bu düğmeye bir kez basın. Sonra bu sayfadaki Bağlan düğmesine basın. Chrome bir liste açar; listeden Hub\'ı seçip Eşle düğmesine basın.',
-  connecting: 'Hub aranıyor. Açılan listeden Hub\'ı seçin.',
+    'Hub\'ın üzerinde tek bir düğme var. Hub\'ı açmak için bu düğmeye bir kez basın. Sonra bu sayfadaki Bağlan düğmesine basın. Chrome bir liste açar. Bu listede sadece LEGO Hub\'ları görünür; ekran okuyucu adını okumasa bile listedeki satır Hub\'dır. Aşağı ok tuşuyla satırı seçin, Tab tuşuyla Eşle düğmesine gidin ve Enter\'a basın.',
+  connecting:
+    'Chrome bir liste açıyor. Bu listede sadece LEGO Hub\'ları görünür. Ekran okuyucu Hub\'ın adını okumayabilir. Aşağı ok tuşuyla ilk satırı seçin, sonra Tab tuşuyla Eşle düğmesine gidip Enter\'a basın.',
   connected: (name, battery, ports) =>
     `Hub bağlandı: ${name || 'isimsiz Hub'}.${battery != null ? ` Pil yüzde ${battery}.` : ''}${ports ? ` ${ports}.` : ''}`,
   connectCancelled:
