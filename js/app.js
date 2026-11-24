@@ -55,6 +55,10 @@ async function connect() {
     say(T.notSupported, { urgent: true });
     return;
   }
+  if (!(await Hub.isAvailable())) {
+    say(T.bluetoothOff, { urgent: true });
+    return;
+  }
   say(T.connecting);
   try {
     await hub.connect();
@@ -72,6 +76,9 @@ async function connect() {
   } catch (err) {
     if (err && err.name === 'NotFoundError') {
       say(T.connectCancelled);
+    } else if (err && err.name === 'OldFirmwareError') {
+      play('error');
+      say(T.oldFirmware, { urgent: true });
     } else {
       play('error');
       say(T.connectFailed(err && err.message ? err.message : ''), { urgent: true });

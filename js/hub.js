@@ -25,18 +25,37 @@ export class Hub extends EventTarget {
     return typeof navigator !== 'undefined' && !!navigator.bluetooth;
   }
 
+  // false when the computer has no Bluetooth or it is turned off
+  static async isAvailable() {
+    try {
+      return await navigator.bluetooth.getAvailability();
+    } catch {
+      return true; // unknown: let the connection attempt decide
+    }
+  }
+
   get connected() {
     return !!(this.device && this.device.gatt && this.device.gatt.connected);
   }
 
   async connect(notificationIntervalMs = 200) {
     this.device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [P.SERVICE_UUID] }],
+      filters: [{ services: [P.SERVICE_UUID] }, { services: [P.LWP_SERVICE_UUID] }],
+      optionalServices: [P.SERVICE_UUID, P.LWP_SERVICE_UUID],
     });
     this.device.addEventListener('gattserverdisconnected', () => this._onDisconnected());
 
     const server = await this.device.gatt.connect();
-    const service = await server.getPrimaryService(P.SERVICE_UUID);
+    let service;
+    try {
+      service = await server.getPrimaryService(P.SERVICE_UUID);
+    } catch {
+      // Found the Hub, but it speaks the old protocol: its firmware must be updated.
+      this.device.gatt.disconnect();
+      const err = new Error('old-firmware');
+      err.name = 'OldFirmwareError';
+      throw err;
+    }
     this.rx = await service.getCharacteristic(P.RX_UUID);
     this.tx = await service.getCharacteristic(P.TX_UUID);
     this.decoder.reset();

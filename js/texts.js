@@ -36,11 +36,16 @@ export const T = {
   notSupported:
     'Bu tarayıcı Bluetooth bağlantısını desteklemiyor. Lütfen bilgisayarda Google Chrome ya da Microsoft Edge kullanın. iPhone ve iPad şu an desteklenmiyor.',
   connectHelp:
-    'Hub\'ı açmak için ortadaki düğmeye basın. Sonra Bağlan düğmesine basın ve açılan listeden Hub\'ı seçin.',
+    'Hub\'ın üzerinde tek bir düğme var. Hub\'ı açmak için bu düğmeye bir kez basın. Sonra bu sayfadaki Bağlan düğmesine basın. Chrome bir liste açar; listeden Hub\'ı seçip Eşle düğmesine basın.',
   connecting: 'Hub aranıyor. Açılan listeden Hub\'ı seçin.',
   connected: (name, battery, ports) =>
     `Hub bağlandı: ${name || 'isimsiz Hub'}.${battery != null ? ` Pil yüzde ${battery}.` : ''}${ports ? ` ${ports}.` : ''}`,
-  connectCancelled: 'Bağlantı iptal edildi.',
+  connectCancelled:
+    'Hub seçilmedi. Liste boş göründüyse: Hub\'ın açık olduğundan emin olun ve LEGO uygulaması açıksa kapatın, çünkü Hub aynı anda tek bir uygulamaya bağlanabilir. Sonra tekrar Bağlan düğmesine basın.',
+  bluetoothOff:
+    'Bilgisayarın Bluetooth\'u kapalı görünüyor. Windows ayarlarından Bluetooth\'u açıp tekrar deneyin.',
+  oldFirmware:
+    'Hub bulundu ama yazılımı eski. Hub\'ı kabloyla bilgisayara takıp spike.legoeducation.com adresindeki güncelleme aracıyla güncelleyin, sonra tekrar deneyin.',
   connectFailed: (msg) => `Bağlanamadı. ${msg} Hub'ın açık olduğundan emin olup tekrar deneyin.`,
   disconnected: 'Hub bağlantısı koptu.',
   notConnected: 'Önce Hub\'a bağlanın.',
