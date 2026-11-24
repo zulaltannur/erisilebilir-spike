@@ -41,6 +41,10 @@ export const T = {
     'Chrome bir liste açıyor. Bu listede sadece LEGO Hub\'ları görünür. Ekran okuyucu Hub\'ın adını okumayabilir. Aşağı ok tuşuyla ilk satırı seçin, sonra Tab tuşuyla Eşle düğmesine gidip Enter\'a basın.',
   connected: (name, battery, ports) =>
     `Hub bağlandı: ${name || 'isimsiz Hub'}.${battery != null ? ` Pil yüzde ${battery}.` : ''}${ports ? ` ${ports}.` : ''}`,
+  connectingKnown: (name) =>
+    `Daha önce eşlenen Hub aranıyor${name ? `: ${name}` : ''}. Hub açık değilse üzerindeki düğmeye basın.`,
+  knownNotNearby:
+    'Kayıtlı Hub bulunamadı. Hub\'ın üzerindeki düğmeye basıp açın ve tekrar Bağlan\'a basın. Başka bir Hub kullanacaksanız Yeni Hub eşle düğmesine basın.',
   connectCancelled:
     'Hub seçilmedi. Listede Hub görünmediyse: Hub\'ın açık olduğundan emin olun ve LEGO uygulaması açıksa kapatın, çünkü Hub aynı anda tek bir uygulamaya bağlanabilir. Sonra tekrar Bağlan düğmesine basın. Yine görünmezse Ayarlar bölümündeki Sorun giderme düğmesini deneyin.',
   pairHelp:

@@ -97,9 +97,13 @@
     },
   };
 
-  Object.defineProperty(navigator, 'bluetooth', {
-    value: { async requestDevice() { return device; } },
-  });
+  device.watchAdvertisements = async () => {
+    setTimeout(() => device.dispatchEvent(new Event('advertisementreceived')), 200);
+  };
+  const bt = { async requestDevice() { return device; }, async getAvailability() { return true; } };
+  // "?hafiza" simulates Chrome remembering a Hub (navigator.bluetooth.getDevices)
+  if (location.search.includes('hafiza')) bt.getDevices = async () => [device];
+  Object.defineProperty(navigator, 'bluetooth', { value: bt });
 
   // Record everything sent to the live regions.
   document.addEventListener('DOMContentLoaded', () => {

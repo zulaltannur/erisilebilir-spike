@@ -19,6 +19,7 @@ export class Hub extends EventTarget {
     this.pending = null; // { id, resolve, reject, timer }
     this.queue = Promise.resolve(); // serializes requests
     this.consoleBuffer = '';
+    this._listening = new WeakSet();
   }
 
   static isSupported() {
@@ -38,12 +39,66 @@ export class Hub extends EventTarget {
     return !!(this.device && this.device.gatt && this.device.gatt.connected);
   }
 
+  // Hubs this site was allowed to use before. Needs Chrome's getDevices(),
+  // which lets us reconnect without Chrome's device list (not screen reader friendly).
+  static async knownHubs() {
+    if (!navigator.bluetooth.getDevices) return [];
+    try {
+      return await navigator.bluetooth.getDevices();
+    } catch {
+      return [];
+    }
+  }
+
+  static canRemember() {
+    return typeof navigator !== 'undefined' && !!(navigator.bluetooth && navigator.bluetooth.getDevices);
+  }
+
+  // Connect via Chrome's device list.
   async connect(notificationIntervalMs = 200) {
-    this.device = await navigator.bluetooth.requestDevice({
+    const device = await navigator.bluetooth.requestDevice({
       filters: [{ services: [P.SERVICE_UUID] }, { services: [P.LWP_SERVICE_UUID] }],
       optionalServices: [P.SERVICE_UUID, P.LWP_SERVICE_UUID],
     });
-    this.device.addEventListener('gattserverdisconnected', () => this._onDisconnected());
+    await this._setup(device, notificationIntervalMs);
+  }
+
+  // Connect to a remembered Hub without opening Chrome's device list.
+  async connectKnown(device, notificationIntervalMs = 200, waitMs = 8000) {
+    if (device.watchAdvertisements) {
+      // The Hub must be on and advertising before we can connect.
+      const ac = new AbortController();
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          ac.abort();
+          const err = new Error('Kayıtlı Hub yakında bulunamadı.');
+          err.name = 'NotNearbyError';
+          reject(err);
+        }, waitMs);
+        device.addEventListener(
+          'advertisementreceived',
+          () => {
+            clearTimeout(timer);
+            ac.abort();
+            resolve();
+          },
+          { once: true },
+        );
+        device.watchAdvertisements({ signal: ac.signal }).catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+      });
+    }
+    await this._setup(device, notificationIntervalMs);
+  }
+
+  async _setup(device, notificationIntervalMs) {
+    this.device = device;
+    if (!this._listening.has(device)) {
+      this._listening.add(device);
+      device.addEventListener('gattserverdisconnected', () => this._onDisconnected());
+    }
 
     const server = await this.device.gatt.connect();
     let service;
@@ -59,7 +114,9 @@ export class Hub extends EventTarget {
     this.rx = await service.getCharacteristic(P.RX_UUID);
     this.tx = await service.getCharacteristic(P.TX_UUID);
     this.decoder.reset();
-    this.tx.addEventListener('characteristicvaluechanged', (e) => this._onData(e.target.value));
+    if (!this._onDataBound) this._onDataBound = (e) => this._onData(e.target.value);
+    this.tx.removeEventListener('characteristicvaluechanged', this._onDataBound);
+    this.tx.addEventListener('characteristicvaluechanged', this._onDataBound);
     await this.tx.startNotifications();
 
     // The first message must always be an InfoRequest.

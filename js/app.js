@@ -38,6 +38,7 @@ const state = {
 function setConnectedUI(connected) {
   $('baglan-btn').hidden = connected;
   $('kes-btn').hidden = !connected;
+  $('yeni-hub-btn').hidden = connected || !Hub.canRemember();
   $('baglanti-durum').textContent = connected
     ? `Bağlı: ${hub.name || 'isimsiz Hub'}`
     : 'Bağlı değil';
@@ -50,7 +51,7 @@ function setConnectedUI(connected) {
   renderList();
 }
 
-async function connect() {
+async function connect({ forceChooser = false } = {}) {
   if (!Hub.isSupported()) {
     say(T.notSupported, { urgent: true });
     return;
@@ -59,9 +60,28 @@ async function connect() {
     say(T.bluetoothOff, { urgent: true });
     return;
   }
-  say(T.connecting);
   try {
-    await hub.connect();
+    // A remembered Hub connects without Chrome's device list, which screen readers
+    // can't read well. The list is only needed the first time (or for a new Hub).
+    const known = forceChooser ? [] : await Hub.knownHubs();
+    if (known.length) {
+      let lastErr = null;
+      let ok = false;
+      for (const device of known) {
+        say(T.connectingKnown(device.name));
+        try {
+          await hub.connectKnown(device);
+          ok = true;
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (!ok) throw lastErr;
+    } else {
+      say(T.connecting);
+      await hub.connect();
+    }
     state.awaitingFirstSnapshot = true;
     setConnectedUI(true);
     play('connected');
@@ -77,6 +97,8 @@ async function connect() {
     if (err && err.message) announcer.addToLog(`Teknik ayrıntı: ${err.name}: ${err.message}`);
     if (err && err.name === 'NotFoundError') {
       say(T.connectCancelled);
+    } else if (err && err.name === 'NotNearbyError') {
+      say(T.knownNotNearby, { urgent: true });
     } else if (err && err.name === 'OldFirmwareError') {
       play('error');
       say(T.oldFirmware, { urgent: true });
@@ -401,7 +423,9 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- Wiring ----------
 
-$('baglan-btn').addEventListener('click', connect);
+$('baglan-btn').addEventListener('click', () => connect());
+$('yeni-hub-btn').addEventListener('click', () => connect({ forceChooser: true }));
+$('yeni-hub-btn').hidden = !Hub.canRemember();
 $('kes-btn').addEventListener('click', () => hub.disconnect());
 $('calistir-btn').addEventListener('click', runMotorTest);
 $('durdur-btn').addEventListener('click', stopProgram);

@@ -110,6 +110,15 @@ with sync_playwright() as p:
     page.set_viewport_size({'width': 1100, 'height': 900})
     page.screenshot(path=os.path.join(HERE, 'desktop.png'), full_page=True)
 
+    # Remembered Hub: connects without Chrome's device list
+    page.goto(f'http://127.0.0.1:{port}/index.html?hafiza')
+    page.wait_for_timeout(300)
+    expect(page.is_visible('#yeni-hub-btn'), 'Yeni Hub eşle düğmesi görünüyor')
+    page.click('#baglan-btn')
+    page.wait_for_timeout(1500)
+    expect(has('Daha önce eşlenen Hub aranıyor: Test Hub.'), 'kayıtlı Hub duyurusu')
+    expect(has('Hub bağlandı: Test Hub.'), 'kayıtlı Hub ile bağlantı')
+
     expect(not errors, 'konsol hatası yok: ' + '; '.join(errors))
     print('\n'.join(said()))
     browser.close()
