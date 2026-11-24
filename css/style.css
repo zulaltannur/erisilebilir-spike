@@ -152,6 +152,15 @@ input[type="radio"], input[type="checkbox"] {
 
 .alan { display: flex; flex-direction: column; gap: 0.25rem; margin: 0 0 1rem; }
 .alan label { font-weight: bold; }
+.komut-secici {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.komut-secici button { width: 100%; text-align: left; }
+button.geri { margin-bottom: 1rem; background: transparent; color: var(--text); }
 .ipucu { font-size: 0.9rem; color: var(--muted); }
 select, .alan input[type="text"] {
   font: inherit;
@@ -187,6 +196,15 @@ footer { margin-top: 3rem; font-size: 0.9rem; color: var(--muted); }
 
 .alan { display: flex; flex-direction: column; gap: 0.25rem; margin: 0 0 1rem; }
 .alan label { font-weight: bold; }
+.komut-secici {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.komut-secici button { width: 100%; text-align: left; }
+button.geri { margin-bottom: 1rem; background: transparent; color: var(--text); }
 .ipucu { font-size: 0.9rem; color: var(--muted); }
 select, .alan input[type="text"] {
   font: inherit;

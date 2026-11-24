@@ -241,12 +241,58 @@ export class Editor {
 
   // ---------- Dialog ----------
 
+  // Adding happens in two steps: first a plain list of buttons, one per command
+  // (every command is visible and read aloud), then the settings of the chosen one.
   openAdd() {
-    this.dialogMode = { kind: 'add', index: Math.min(this.active + (this.active < this.program.length ? 1 : 0), this.program.length) };
-    this.title.textContent = 'Komut ekle';
-    this._renderFields(newCommand('motorRun'), true);
-    this.dialog.showModal();
-    this.fields.querySelector('select, input').focus();
+    this.dialogMode = {
+      kind: 'add',
+      index: Math.min(this.active + (this.active < this.program.length ? 1 : 0), this.program.length),
+    };
+    this._showPicker();
+    if (!this.dialog.open) this.dialog.showModal();
+    this.fields.querySelector('button').focus();
+  }
+
+  _showPicker() {
+    this.title.textContent = 'Komut ekle: bir komut seçin';
+    this.fields.textContent = '';
+    delete this.fields.dataset.type;
+    this._submitButton().hidden = true;
+    const list = document.createElement('ul');
+    list.className = 'komut-secici';
+    list.setAttribute('aria-label', 'Komutlar');
+    for (const [type, def] of Object.entries(COMMAND_TYPES)) {
+      if (def.hidden) continue;
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = def.name;
+      btn.addEventListener('click', () => this._chooseType(type));
+      li.append(btn);
+      list.append(li);
+    }
+    this.fields.append(list);
+  }
+
+  _chooseType(type) {
+    this.title.textContent = `Komut ekle: ${COMMAND_TYPES[type].name}`;
+    this._renderFields(newCommand(type));
+    this._submitButton().hidden = false;
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'geri';
+    back.textContent = 'Başka bir komut seç';
+    back.addEventListener('click', () => {
+      this._showPicker();
+      this.fields.querySelector('button').focus();
+    });
+    this.fields.append(back);
+    const first = this.fields.querySelector('select, input');
+    (first || this._submitButton()).focus();
+  }
+
+  _submitButton() {
+    return this.form.querySelector('button[type="submit"]');
   }
 
   openEdit(i) {
@@ -254,23 +300,15 @@ export class Editor {
     if (cmd.type === 'repeatEnd') return this.say('Tekrar sonunun ayarı yok. Tekrarı değiştirmek için başlangıcına gidin.');
     this.dialogMode = { kind: 'edit', index: i };
     this.title.textContent = `Komutu düzenle: ${COMMAND_TYPES[cmd.type].name}`;
-    this._renderFields(cmd, false);
+    this._renderFields(cmd);
+    this._submitButton().hidden = false;
     this.dialog.showModal();
     const first = this.fields.querySelector('select, input');
     if (first) first.focus();
   }
 
-  _renderFields(cmd, withType) {
+  _renderFields(cmd) {
     this.fields.textContent = '';
-    if (withType) {
-      const select = this._select('komut-turu', 'Komut türü',
-        Object.fromEntries(Object.entries(COMMAND_TYPES).filter(([, t]) => !t.hidden).map(([k, t]) => [k, t.name])),
-        cmd.type);
-      select.addEventListener('change', () => {
-        this._renderFields(newCommand(select.value), true);
-        this.fields.querySelector('#komut-turu').focus();
-      });
-    }
     for (const f of COMMAND_TYPES[cmd.type].fields) {
       if (f.type === 'choice') this._select(`alan-${f.key}`, f.label, f.options, cmd[f.key]);
       else this._number(`alan-${f.key}`, f.label, f, cmd[f.key]);
@@ -348,7 +386,7 @@ export class Editor {
 
   _submitDialog() {
     const mode = this.dialogMode;
-    if (!mode) return;
+    if (!mode || !this.fields.dataset.type) return;
     const cmd = this._readFields();
     if (mode.kind === 'add') {
       const at = mode.index;
