@@ -36,14 +36,14 @@ export const T = {
   notSupported:
     'Bu tarayıcı Bluetooth bağlantısını desteklemiyor. Lütfen bilgisayarda Google Chrome ya da Microsoft Edge kullanın. iPhone ve iPad şu an desteklenmiyor.',
   connectHelp:
-    'Hub\'ın üzerinde tek bir düğme var. Hub\'ı açmak için bu düğmeye bir kez basın. Sonra Bağlan düğmesine basın. Chrome bir eşleme penceresi açar; ekran okuyucu bu penceredeki listeyi okumayabilir, bu yüzden size sesle yol gösteririz. Önce birkaç tık sesi duyacaksınız. Ardından zil sesi gelince Aşağı ok tuşuna, sonra Enter tuşuna basın. Bağlantı kurulunca Hub bağlandı diye okunur. Bu işlem sadece ilk seferde gerekir.',
+    'Hub\'ın üzerinde tek bir düğme var. Hub\'ı açmak için bu düğmeyi birkaç saniye basılı tutun. Sonra Bağlan düğmesine basın. Chrome bir eşleme penceresi açar; ekran okuyucu bu penceredeki listeyi okumayabilir, bu yüzden size sesle yol gösteririz. Önce birkaç tık sesi duyacaksınız. Ardından zil sesi gelince Aşağı ok tuşuna, sonra Enter tuşuna basın. Bağlantı kurulunca Hub bağlandı diye okunur. Bu işlem sadece ilk seferde gerekir.',
   connecting: 'Eşleme penceresi açılıyor. Zil sesini bekleyin; sonra Aşağı ok ve Enter.',
   connected: (name, battery, ports) =>
     `Hub bağlandı: ${name || 'isimsiz Hub'}.${battery != null ? ` Pil yüzde ${battery}.` : ''}${ports ? ` ${ports}.` : ''}`,
   connectingKnown: (name) =>
-    `Daha önce eşlenen Hub aranıyor${name ? `: ${name}` : ''}. Hub açık değilse üzerindeki düğmeye basın.`,
+    `Daha önce eşlenen Hub aranıyor${name ? `: ${name}` : ''}. Hub açık değilse üzerindeki düğmeyi basılı tutun.`,
   knownNotNearby:
-    'Kayıtlı Hub bulunamadı. Hub\'ın üzerindeki düğmeye basıp açın ve tekrar Bağlan\'a basın. Başka bir Hub kullanacaksanız Yeni Hub eşle düğmesine basın.',
+    'Kayıtlı Hub bulunamadı. Hub\'ın üzerindeki düğmeyi basılı tutup açın ve tekrar Bağlan\'a basın. Başka bir Hub kullanacaksanız Yeni Hub eşle düğmesine basın.',
   connectCancelled:
     'Hub seçilmedi. Listede Hub görünmediyse: Hub\'ın açık olduğundan emin olun ve LEGO uygulaması açıksa kapatın, çünkü Hub aynı anda tek bir uygulamaya bağlanabilir. Sonra tekrar Bağlan düğmesine basın. Yine görünmezse Ayarlar bölümündeki Sorun giderme düğmesini deneyin.',
   pairHelp: 'Pencere açılıyor. Zil sesinden sonra Aşağı ok tuşuyla cihazları gezin ve Enter ile seçin.',
