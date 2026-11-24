@@ -74,6 +74,7 @@ async function connect() {
       }
     }, 1500);
   } catch (err) {
+    if (err && err.message) announcer.addToLog(`Teknik ayrıntı: ${err.name}: ${err.message}`);
     if (err && err.name === 'NotFoundError') {
       say(T.connectCancelled);
     } else if (err && err.name === 'OldFirmwareError') {
@@ -411,6 +412,7 @@ $('tani-btn').addEventListener('click', async () => {
   try {
     say(T.diagnoseResult(await Hub.diagnose()));
   } catch (err) {
+    if (err && err.message) announcer.addToLog(`Teknik ayrıntı: ${err.name}: ${err.message}`);
     if (err && err.name === 'NotFoundError') say(T.connectCancelled);
     else say(T.connectFailed(err && err.message ? err.message : ''), { urgent: true });
   }
