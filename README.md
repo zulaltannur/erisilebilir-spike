@@ -8,6 +8,7 @@ SPIKE Essential robotik setiyle uyumlu, **ekran okuyucu öncelikli** bir web uyg
 
 - **Bağlan:** Web Bluetooth ile Hub'a bağlanır. Hub'ın adını, pil durumunu ve portlara takılı parçaları tek cümlede bildirir.
 - **Keşfet listesi:** Hub'ı, Port A'yı ve Port B'yi canlı gösterir. Bir parça takılınca ya da çıkarılınca, motor elle çevrilince veya renk sensörü yeni bir renk görünce ekran okuyucuya bildirir.
+- **Program editörü:** Klavyeyle kurulan komut listesi. Motor döndür, sürekli döndür, durdur, hız, bekle, ışık matrisi deseni, ışığı kapat, bilgisayardan ses, renk görene kadar bekle ve tekrarla komutları var. Program tarayıcıda kaydedilir. Essential Hub'ında adım adım çalışır, her adım ve her tekrar turu duyurulur.
 - **Motor denemesi:** Seçilen porttaki motoru bir tur döndürür. Programın her adımı çalışırken bildirilir.
 - **Olay geçmişi:** Bütün bildirimlerin yazılı listesi. Braille ekran kullanıcıları için de uygundur.
 - **Uyarı sesleri:** Bağlanma, program bitti ve hata için kısa sesler. Ayarlardan kapatılabilir.
@@ -23,7 +24,14 @@ Kısayollar her dilde aynıdır.
 | ? | Kısayol listesini aç |
 | Ok tuşları, Home, End | Keşfet listesinde gezin |
 | Enter | Seçili satırı yeniden oku |
-| R (Run) | Çalıştır (Keşfet listesindeyken) |
+| A (Add) | Komut ekle (Program listesindeyken) |
+| Enter | Program listesinde seçili komutu düzenle |
+| Delete | Komutu sil |
+| Alt + Yukarı / Aşağı ok | Komutu taşı |
+| Ctrl + Z / Ctrl + Y | Geri al / yinele |
+| Ctrl + C / Ctrl + V | Komutu kopyala / yapıştır |
+| P (Program) | Programı baştan oku |
+| R (Run) | Programı çalıştır |
 | H (Hub) | Hub durumunu oku (Keşfet listesindeyken) |
 | W (Where am I) | Neredeyim (Keşfet listesindeyken) |
 

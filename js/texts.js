@@ -16,6 +16,7 @@ export const COLORS = {
 };
 
 export const colorName = (c) => (c in COLORS ? COLORS[c] : 'renk yok');
+export const isRealColor = (c) => c in COLORS;
 
 export const PORT_NAMES = ['A', 'B', 'C', 'D', 'E', 'F'];
 
@@ -85,6 +86,10 @@ export const T = {
     other ? `Port ${da(p)} motor yok. Motor Port ${da(other)}.` : `Port ${da(p)} motor yok. Önce bir motor takın.`,
   motorTurnStep: (p) => `Motor ${p} bir tur dönüyor`,
   nothingRunning: 'Şu an çalışan bir program yok.',
+  programEmpty: 'Program boş. Önce A tuşuyla ya da Komut ekle düğmesiyle komut ekleyin.',
+  programNeedsEssential: 'Program şimdilik sadece SPIKE Essential Hub\'ında çalışıyor.',
+  programRound: (r, t) => `Tekrar: ${r}. tur, ${t} turdan.`,
+  programRunError: (m) => `Program durdu. ${m}`,
 
   whereAmI: (section, connected) =>
     `${section} bölümündesiniz. Hub ${connected ? 'bağlı' : 'bağlı değil'}.`,

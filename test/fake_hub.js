@@ -169,8 +169,9 @@
   document.addEventListener('DOMContentLoaded', () => {
     for (const id of ['duyuru-normal', 'duyuru-acil']) {
       const el = document.getElementById(id);
-      new MutationObserver(() => { if (el.textContent) said.push(el.textContent); })
-        .observe(el, { childList: true, characterData: true, subtree: true });
+      new MutationObserver((records) => {
+        for (const r of records) for (const n of r.addedNodes) if (n.textContent) said.push(n.textContent);
+      }).observe(el, { childList: true });
     }
   });
 })();

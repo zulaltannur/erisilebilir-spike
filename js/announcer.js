@@ -20,11 +20,12 @@ export class Announcer {
     this.lastTime = now;
 
     const region = urgent ? this.assertive : this.polite;
-    // Clearing first makes screen readers re-read identical text.
-    region.textContent = '';
-    setTimeout(() => {
-      region.textContent = text;
-    }, 50);
+    // Each message is added as its own element, so quick messages in a row are all
+    // read instead of overwriting each other. Old ones are removed after a while.
+    const item = document.createElement('p');
+    item.textContent = text;
+    setTimeout(() => region.append(item), 50);
+    setTimeout(() => item.remove(), 8000);
 
     if (logIt) this.addToLog(text);
   }

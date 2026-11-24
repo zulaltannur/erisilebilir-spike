@@ -57,7 +57,7 @@ export class LwpSession {
     this.emit = emit;
     this.battery = null;
     this.ports = new Map(); // port -> { kind, type, ...values }
-    this.pendingCommand = null; // { port, resolve, timer }
+    this.pending = new Map(); // port -> { resolve, timer, sawProgress }
     this.writeQueue = Promise.resolve();
     this.snapshotTimer = null;
     this._onValue = (e) => this._onData(e.target.value);
@@ -81,7 +81,7 @@ export class LwpSession {
   stop() {
     clearInterval(this.snapshotTimer);
     this.char.removeEventListener('characteristicvaluechanged', this._onValue);
-    if (this.pendingCommand) this._finishCommand(false);
+    for (const port of [...this.pending.keys()]) this._finish(port, false);
   }
 
   // ---------- Writing ----------
@@ -102,62 +102,88 @@ export class LwpSession {
 
   // ---------- Commands ----------
 
-  // Turn a motor by a number of degrees and resolve when it is done.
-  async motorDegrees(port, degrees, speed = 50) {
-    if (this.pendingCommand) this._finishCommand(false);
-    const d = new DataView(new ArrayBuffer(4));
-    d.setInt32(0, degrees, true);
-    this.emit('consoleLine', '@BASLA');
-    this.emit('consoleLine', '@ADIM 1');
-    const done = new Promise((resolve) => {
-      const timer = setTimeout(() => this._finishCommand(true), COMMAND_TIMEOUT_MS);
-      this.pendingCommand = { port, resolve, timer, sawProgress: false };
-    });
-    await this._send(
-      msg(
-        T.PORT_OUTPUT_COMMAND,
-        port,
-        0x11, // execute immediately + command feedback
-        0x0b, // StartSpeedForDegrees
-        ...new Uint8Array(d.buffer),
-        speed & 0xff,
-        100, // max power
-        127, // end state: brake
-        0, // no acceleration profile
-      ),
-    );
+  // Sends a port output command and resolves when the hub reports it finished
+  // (true) or discarded (false).
+  _command(port, subcommand, payload, { wait = true, timeoutMs = COMMAND_TIMEOUT_MS } = {}) {
+    const previous = this.pending.get(port);
+    if (previous) this._finish(port, false);
+    const done = wait
+      ? new Promise((resolve) => {
+          const timer = setTimeout(() => this._finish(port, true), timeoutMs);
+          this.pending.set(port, { resolve, timer, sawProgress: false });
+        })
+      : Promise.resolve(true);
+    // 0x11 = execute immediately + send command feedback
+    this._send(msg(T.PORT_OUTPUT_COMMAND, port, 0x11, subcommand, ...payload));
     return done;
   }
 
-  async stopAll() {
-    const wasRunning = !!this.pendingCommand;
-    for (const [port, dev] of this.ports) {
-      if (dev.kind === 'motor') {
-        // WriteDirectModeData, mode 0 = StartPower, 127 = brake
-        await this._send(msg(T.PORT_OUTPUT_COMMAND, port, 0x11, 0x51, 0x00, 127));
-      }
-    }
-    if (wasRunning) {
-      this._finishCommand(false);
-      this.emit('programStopped');
-    }
-  }
-
-  async setMatrix(port, pixels) {
-    // pixels: 9 x { color, brightness 0..10 }
-    const bytes = pixels.map((p) => ((p.brightness & 0x0f) << 4) | (p.color & 0x0f));
-    await this._send(msg(T.PORT_OUTPUT_COMMAND, port, 0x11, 0x51, MATRIX_MODE_PIXELS, ...bytes));
-    const dev = this.ports.get(port);
-    if (dev) dev.pixels = pixels;
-  }
-
-  _finishCommand(completed) {
-    const c = this.pendingCommand;
+  _finish(port, completed) {
+    const c = this.pending.get(port);
     if (!c) return;
     clearTimeout(c.timer);
-    this.pendingCommand = null;
-    if (completed) this.emit('consoleLine', '@BITTI');
+    this.pending.delete(port);
     c.resolve(completed);
+  }
+
+  runForDegrees(port, degrees, speed) {
+    const d = new DataView(new ArrayBuffer(4));
+    d.setInt32(0, Math.abs(Math.round(degrees)), true);
+    const sp = Math.sign(degrees || 1) * Math.abs(speed);
+    // StartSpeedForDegrees: degrees, speed, max power, end state (127 = brake), profile
+    return this._command(port, 0x0b, [...new Uint8Array(d.buffer), sp & 0xff, 100, 127, 0]);
+  }
+
+  runForTime(port, ms, speed) {
+    const d = new DataView(new ArrayBuffer(2));
+    d.setInt16(0, Math.min(32000, Math.round(ms)), true);
+    // StartSpeedForTime: time, speed, max power, end state, profile
+    return this._command(port, 0x09, [...new Uint8Array(d.buffer), speed & 0xff, 100, 127, 0], {
+      timeoutMs: ms + 5000,
+    });
+  }
+
+  startSpeed(port, speed) {
+    // StartSpeed: speed, max power, profile. Runs until stopped.
+    return this._command(port, 0x07, [speed & 0xff, 100, 0], { wait: false });
+  }
+
+  brake(port) {
+    // WriteDirectModeData, mode 0 = StartPower, 127 = brake
+    return this._command(port, 0x51, [0x00, 127], { wait: false });
+  }
+
+  setMatrix(port, pixels) {
+    // pixels: 9 x { color, brightness 0..10 }
+    const bytes = pixels.map((p) => ((p.brightness & 0x0f) << 4) | (p.color & 0x0f));
+    const dev = this.ports.get(port);
+    if (dev) dev.pixels = pixels;
+    return this._command(port, 0x51, [MATRIX_MODE_PIXELS, ...bytes], { wait: false });
+  }
+
+  deviceAt(port) {
+    return this.ports.get(port) || null;
+  }
+
+  // Used by the quick motor test: one turn with progress markers.
+  async motorDegrees(port, degrees, speed = 50) {
+    this.emit('consoleLine', '@BASLA');
+    this.emit('consoleLine', '@ADIM 1');
+    this.testRunning = true;
+    const ok = await this.runForDegrees(port, degrees, speed);
+    if (this.testRunning && ok) this.emit('consoleLine', '@BITTI');
+    this.testRunning = false;
+  }
+
+  async stopAll() {
+    for (const port of [...this.pending.keys()]) this._finish(port, false);
+    for (const [port, dev] of this.ports) {
+      if (dev.kind === 'motor') this.brake(port);
+    }
+    if (this.testRunning) {
+      this.testRunning = false;
+      this.emit('programStopped');
+    }
   }
 
   // ---------- Reading ----------
@@ -238,15 +264,15 @@ export class LwpSession {
       }
 
       case T.PORT_OUTPUT_FEEDBACK: {
-        const c = this.pendingCommand;
         // payload: (port, flags) pairs
         for (let i = p; i + 1 < m.length; i += 2) {
           const port = m[i];
           const flags = m[i + 1];
-          if (!c || port !== c.port) continue;
+          const c = this.pending.get(port);
+          if (!c) continue;
           if (flags & 0x01) c.sawProgress = true;
-          if (flags & 0x02 || (c.sawProgress && flags & 0x08)) this._finishCommand(true);
-          else if (flags & 0x04) this._finishCommand(false);
+          if (flags & 0x02 || (c.sawProgress && flags & 0x08)) this._finish(port, true);
+          else if (flags & 0x04) this._finish(port, false);
         }
         break;
       }

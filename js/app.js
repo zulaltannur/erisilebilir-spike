@@ -1,8 +1,11 @@
 import { Hub } from './hub.js';
 import { Announcer } from './announcer.js';
 import { play, setSoundsEnabled } from './sounds.js';
-import { T, PORT_NAMES, DEVICE_NAMES, colorName } from './texts.js';
+import { T, PORT_NAMES, DEVICE_NAMES, colorName, isRealColor } from './texts.js';
 import { motorOneTurnProgram, parseConsoleLine } from './programs.js';
+import { Editor } from './editor.js';
+import { Runner } from './runner.js';
+import { validate } from './program-model.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,6 +13,7 @@ const PROGRAM_SLOT = 0;
 const LOW_BATTERY = 20;
 const MOTOR_MOVE_THRESHOLD = 3; // degrees between two updates
 const MOTOR_STILL_COUNT = 2; // updates without movement = stopped
+const COLOR_CONFIRM_COUNT = 3; // same new color this many updates in a row (about 0.6 s)
 
 const hub = new Hub();
 const announcer = new Announcer({
@@ -26,6 +30,7 @@ const state = {
   motorStill: [0, 0],
   confirmedColor: [null, null], // color shown and announced
   pendingColor: [null, null], // new color waiting for confirmation
+  pendingCount: [0, 0],
   programRunning: false,
   programSteps: [],
   batteryWarned: false,
@@ -130,6 +135,7 @@ async function connect({ forceChooser = false } = {}) {
 }
 
 hub.addEventListener('disconnected', () => {
+  if (runner.running) runner.stop();
   const hadFocusOnDisconnect = document.activeElement === $('kes-btn');
   setConnectedUI(false);
   play('disconnected');
@@ -228,20 +234,28 @@ hub.addEventListener('devices', (e) => {
       }
     }
 
-    // Color: announce only after the same new color is seen twice in a row
+    // Color: announce only after the same new color is seen several times in a row,
+    // and never announce "no color" (the sensor flickers when nothing is in front of it).
     if (after && after.kind === 'color') {
       const freshlyAttached = !before || before.kind !== 'color';
       if (freshlyAttached) {
         state.confirmedColor[i] = after.color;
         state.pendingColor[i] = null;
+        state.pendingCount[i] = 0;
       } else if (after.color === state.confirmedColor[i]) {
         state.pendingColor[i] = null;
+        state.pendingCount[i] = 0;
       } else if (after.color === state.pendingColor[i]) {
-        state.confirmedColor[i] = after.color;
-        state.pendingColor[i] = null;
-        if (after.color !== -1) say(T.colorSeen(colorName(after.color)));
+        state.pendingCount[i] += 1;
+        if (state.pendingCount[i] >= COLOR_CONFIRM_COUNT) {
+          state.confirmedColor[i] = after.color;
+          state.pendingColor[i] = null;
+          state.pendingCount[i] = 0;
+          if (isRealColor(after.color)) say(T.colorSeen(colorName(after.color)));
+        }
       } else {
         state.pendingColor[i] = after.color;
+        state.pendingCount[i] = 1;
       }
     }
   }
@@ -335,7 +349,75 @@ async function runMotorTest() {
   }
 }
 
+// ---------- Program editor ----------
+
+const editor = new Editor({
+  list: $('program-liste'),
+  dialog: $('komut-dialog'),
+  form: $('komut-form'),
+  fields: $('komut-alanlar'),
+  title: $('komut-dialog-baslik'),
+  cancelBtn: $('komut-iptal'),
+  say,
+});
+
+const PROGRAM_SOUNDS = { beep: 'attach', bell: 'ready', success: 'programEnd' };
+
+const runner = new Runner({
+  getSession: () => hub.lwp,
+  onStep: (index, n, text) => {
+    editor.setRunning(index);
+    say(T.programStep(n, text));
+  },
+  onRound: (index, round, times) => {
+    editor.setRunning(index);
+    say(T.programRound(round, times));
+  },
+  onDone: (completed) => {
+    state.programRunning = false;
+    state.programEndedAt = Date.now();
+    editor.setRunning(-1);
+    if (completed) {
+      play('programEnd');
+      say(T.programDone);
+    } else {
+      say(T.programStopped, { urgent: true });
+    }
+  },
+  onError: (message) => {
+    state.programRunning = false;
+    state.programEndedAt = Date.now();
+    editor.setRunning(-1);
+    play('error');
+    say(T.programRunError(message), { urgent: true });
+    if (hub.lwp) hub.lwp.stopAll();
+  },
+  playSound: (name) => play(PROGRAM_SOUNDS[name] || 'attach', { essential: true }),
+});
+
+function runProgram() {
+  if (!hub.connected) return say(T.notConnected, { urgent: true });
+  if (hub.protocol !== 'lwp') return say(T.programNeedsEssential, { urgent: true });
+  if (runner.running) return;
+  if (!editor.program.length) return say(T.programEmpty, { urgent: true });
+  const problem = validate(editor.program);
+  if (problem) {
+    say(problem.message, { urgent: true });
+    editor.setActive(problem.index);
+    editor.list.focus();
+    return;
+  }
+  state.programRunning = true;
+  play('programStart');
+  say(T.programStarted);
+  runner.run(editor.program);
+}
+
 async function stopProgram() {
+  if (runner.running) {
+    runner.stop();
+    return;
+  }
   if (!hub.connected) return;
   if (!state.programRunning) {
     say(T.nothingRunning);
@@ -403,13 +485,13 @@ const isTextField = (el) =>
 document.addEventListener('keydown', (e) => {
   // Escape always stops the robot. We don't prevent default, so open dialogs still close.
   if (e.key === 'Escape') {
-    if (state.programRunning) stopProgram();
+    if (state.programRunning || runner.running) stopProgram();
     return;
   }
 
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
-    runMotorTest();
+    runProgram();
     return;
   }
 
@@ -426,7 +508,7 @@ document.addEventListener('keydown', (e) => {
 
   switch (e.key.toLowerCase()) {
     case 'r':
-      runMotorTest();
+      runProgram();
       break;
     case 'h':
       say(hubSummary(), { logIt: false });
@@ -447,6 +529,10 @@ $('yeni-hub-btn').addEventListener('click', () => connect({ forceChooser: true }
 $('yeni-hub-btn').hidden = !Hub.canRemember();
 $('kes-btn').addEventListener('click', () => hub.disconnect());
 $('calistir-btn').addEventListener('click', runMotorTest);
+$('ekle-btn').addEventListener('click', () => editor.openAdd());
+$('program-calistir-btn').addEventListener('click', runProgram);
+$('program-durdur-btn').addEventListener('click', stopProgram);
+$('program-temizle-btn').addEventListener('click', () => editor.clear());
 $('durdur-btn').addEventListener('click', stopProgram);
 $('yardim-btn').addEventListener('click', () => $('yardim-dialog').showModal());
 $('tani-btn').addEventListener('click', async () => {

@@ -12,8 +12,8 @@
   <a class="skip-link" href="#kesfet-baslik">Keşfet bölümüne atla</a>
 
   <!-- Screen reader announcements. Visually hidden, always present. -->
-  <div id="duyuru-normal" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
-  <div id="duyuru-acil" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
+  <div id="duyuru-normal" class="visually-hidden" aria-live="polite" aria-atomic="false"></div>
+  <div id="duyuru-acil" class="visually-hidden" aria-live="assertive" aria-atomic="false"></div>
 
   <header>
     <h1>Erişilebilir SPIKE</h1>
@@ -48,6 +48,25 @@
       </div>
     </section>
 
+    <section aria-labelledby="program-baslik">
+      <h2 id="program-baslik" tabindex="-1">Program</h2>
+      <p id="program-yardim">
+        Program, sırayla çalışan komutların listesidir. Ok tuşlarıyla gezinin.
+        Enter seçili komutu düzenler. A tuşu yeni komut ekler. Delete siler.
+        Alt ile yukarı ya da aşağı ok komutu taşır. P tuşu programı baştan okur.
+        Ctrl ve Enter programı çalıştırır, Escape durdurur.
+      </p>
+      <div id="program-liste" class="liste" role="listbox" tabindex="0"
+           aria-labelledby="program-baslik" aria-describedby="program-yardim"
+           data-kisayol-alani></div>
+      <div class="buton-satiri">
+        <button type="button" id="ekle-btn" aria-keyshortcuts="A">Komut ekle</button>
+        <button type="button" id="program-calistir-btn" aria-keyshortcuts="Control+Enter">Programı çalıştır</button>
+        <button type="button" id="program-durdur-btn" class="durdur" aria-keyshortcuts="Escape">Durdur</button>
+        <button type="button" id="program-temizle-btn">Programı temizle</button>
+      </div>
+    </section>
+
     <section aria-labelledby="deneme-baslik">
       <h2 id="deneme-baslik">Motor denemesi</h2>
       <fieldset>
@@ -56,7 +75,7 @@
         <label><input type="radio" name="motor-port" value="1"> Port B</label>
       </fieldset>
       <div class="buton-satiri">
-        <button type="button" id="calistir-btn" aria-keyshortcuts="Control+Enter" aria-disabled="true">
+        <button type="button" id="calistir-btn" aria-disabled="true">
           Motoru bir tur döndür
         </button>
         <button type="button" id="durdur-btn" class="durdur" aria-keyshortcuts="Escape">Durdur</button>
@@ -89,9 +108,20 @@
     </section>
   </main>
 
+  <dialog id="komut-dialog" aria-labelledby="komut-dialog-baslik">
+    <h2 id="komut-dialog-baslik">Komut ekle</h2>
+    <form id="komut-form">
+      <div id="komut-alanlar"></div>
+      <div class="buton-satiri">
+        <button type="submit">Tamam</button>
+        <button type="button" id="komut-iptal">İptal</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="yardim-dialog" aria-labelledby="yardim-baslik">
     <h2 id="yardim-baslik">Kısayol listesi</h2>
-    <p>Kısayollar her dilde aynıdır. Harf kısayolları Keşfet listesindeyken çalışır.</p>
+    <p>Kısayollar her dilde aynıdır. Harf kısayolları Keşfet ve Program listelerindeyken çalışır.</p>
     <table>
       <caption class="visually-hidden">Tuşlar ve görevleri</caption>
       <thead>
@@ -103,8 +133,14 @@
         <tr><td>Soru işareti</td><td>Bu listeyi aç</td></tr>
         <tr><td>Yukarı ve aşağı ok</td><td>Listede gezin</td></tr>
         <tr><td>Home ve End</td><td>Listenin başına ya da sonuna git</td></tr>
-        <tr><td>Enter</td><td>Seçili satırı yeniden oku</td></tr>
-        <tr><td>R, Run</td><td>Çalıştır</td></tr>
+        <tr><td>Enter</td><td>Keşfet listesinde satırı yeniden oku, Program listesinde komutu düzenle</td></tr>
+        <tr><td>A, Add</td><td>Komut ekle</td></tr>
+        <tr><td>Delete</td><td>Komutu sil</td></tr>
+        <tr><td>Alt ve yukarı ya da aşağı ok</td><td>Komutu taşı</td></tr>
+        <tr><td>Ctrl ve Z, Ctrl ve Y</td><td>Geri al, yinele</td></tr>
+        <tr><td>Ctrl ve C, Ctrl ve V</td><td>Komutu kopyala, yapıştır</td></tr>
+        <tr><td>P, Program</td><td>Programı baştan oku</td></tr>
+        <tr><td>R, Run</td><td>Programı çalıştır</td></tr>
         <tr><td>H, Hub</td><td>Hub durumunu oku</td></tr>
         <tr><td>W, Where am I</td><td>Neredeyim</td></tr>
       </tbody>
