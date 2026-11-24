@@ -151,7 +151,7 @@ export const COMMAND_TYPES = {
   repeatEnd: { group: 'control', name: 'Tekrar sonu', fields: [], defaults: {}, hidden: true },
   ifStart: {
     group: 'control',
-    name: 'Eğer',
+    name: 'Eğer (koşul doğruysa yap)',
     block: 'if',
     fields: [
       { ...portField, label: 'Renk sensörünün portu' },
@@ -159,7 +159,18 @@ export const COMMAND_TYPES = {
     ],
     defaults: { condition: 'colorIs', port: 1, color: 9 },
   },
-  else: { group: 'control', name: 'Değilse (Eğer bloğunun içine)', fields: [], defaults: {} },
+  // Adds "Eğer", "Değilse" and "Eğer sonu" together; never stored as its own command.
+  ifElseStart: {
+    group: 'control',
+    name: 'Eğer / değilse',
+    block: 'ifelse',
+    fields: [
+      { ...portField, label: 'Renk sensörünün portu' },
+      colorField('Renk sensörü bu rengi görüyorsa'),
+    ],
+    defaults: { port: 1, color: 9 },
+  },
+  else: { group: 'control', name: 'Değilse', fields: [], defaults: {}, hidden: true },
   ifEnd: { group: 'control', name: 'Eğer sonu', fields: [], defaults: {}, hidden: true },
   parallelStart: { group: 'control', name: 'Aynı anda yap', block: 'parallel', fields: [], defaults: {} },
   parallelEnd: { group: 'control', name: 'Aynı anda sonu', fields: [], defaults: {}, hidden: true },
@@ -264,6 +275,7 @@ export function partnerOf(program, i) {
 }
 
 const n = (i) => `Komut ${i + 1}`;
+const HOW_TO_FILL = 'Bloğun içine komut eklemek için bloğun ilk ya da son satırına gidip A tuşuna basın.';
 
 // Returns null if the program can run, otherwise { index, message }.
 export function validate(program) {
@@ -300,7 +312,7 @@ export function parse(program) {
         const start = i++;
         const body = parseUntil(['repeatEnd']);
         if (i >= program.length) fail(start, `${n(start)}: bu tekrarın sonu yok.`);
-        if (!body.length) fail(start, `${n(start)}: tekrarın içinde hiç komut yok.`);
+        if (!body.length) fail(start, `${n(start)}: tekrarın içinde hiç komut yok. ${HOW_TO_FILL}`);
         i++;
         nodes.push({ kind: 'repeat', index: start, cmd, body });
       } else if (cmd.type === 'ifStart') {
@@ -312,13 +324,14 @@ export function parse(program) {
           otherwise = parseUntil(['ifEnd']);
         }
         if (i >= program.length) fail(start, `${n(start)}: bu Eğer bloğunun sonu yok.`);
+        if (!then.length && !otherwise.length) fail(start, `${n(start)}: Eğer bloğunun içinde hiç komut yok. ${HOW_TO_FILL}`);
         i++;
         nodes.push({ kind: 'if', index: start, cmd, then, otherwise });
       } else if (cmd.type === 'parallelStart') {
         const start = i++;
         const body = parseUntil(['parallelEnd']);
         if (i >= program.length) fail(start, `${n(start)}: Aynı anda bloğunun sonu yok.`);
-        if (body.length < 2) fail(start, `${n(start)}: Aynı anda bloğunda en az iki komut olmalı.`);
+        if (body.length < 2) fail(start, `${n(start)}: Aynı anda bloğunun içinde en az iki komut olmalı, şu an ${body.length} komut var. ${HOW_TO_FILL}`);
         const ports = new Set();
         for (const node of body) {
           if (node.kind !== 'cmd') fail(node.index, `${n(node.index)}: Aynı anda bloğunun içine başka bir blok konamaz.`);

@@ -245,13 +245,20 @@ export class Editor {
   // Adding happens in two steps: first a plain list of buttons, one per command
   // (every command is visible and read aloud), then the settings of the chosen one.
   openAdd() {
-    this.dialogMode = {
-      kind: 'add',
-      index: Math.min(this.active + (this.active < this.program.length ? 1 : 0), this.program.length),
-    };
+    this.dialogMode = { kind: 'add', index: this._insertIndex() };
     this._showPicker();
     if (!this.dialog.open) this.dialog.showModal();
     this.fields.querySelector('button').focus();
+  }
+
+  // Where a new command goes:
+  //  - on "Yeni komut ekle" (last line): at the very end of the program
+  //  - on the end line of a block ("Tekrar sonu", "Eğer sonu", "Aynı anda sonu"): inside the block, last
+  //  - anywhere else: right after the selected command (on a block's first line: inside, first)
+  _insertIndex() {
+    if (this.active >= this.program.length) return this.program.length;
+    if (isBlockEnd(this.program[this.active].type)) return this.active;
+    return this.active + 1;
   }
 
   _showPicker() {
@@ -413,11 +420,23 @@ export class Editor {
     const cmd = this._readFields();
     if (mode.kind === 'add') {
       const at = mode.index;
-      if (isBlockStart(cmd.type)) {
+      if (cmd.type === 'ifElseStart') {
+        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color };
+        const items = [start, { type: 'else' }, { type: 'ifEnd' }];
+        this._change(
+          () => this.program.splice(at, 0, ...items),
+          `Eklendi: ${at + 1}. ${describe(start)}, ${at + 2}. Değilse, ${at + 3}. Eğer sonu. ` +
+            'Seçili satır Eğer. Şimdi A tuşuyla ekleyeceğiniz komutlar koşul doğruysa çalışır. ' +
+            'Değilse satırına gidip A tuşuna basarsanız eklenenler koşul yanlışsa çalışır.',
+          at,
+        );
+      } else if (isBlockStart(cmd.type)) {
         const end = { type: blockEndFor(cmd.type) };
         this._change(
           () => this.program.splice(at, 0, cmd, end),
-          `Eklendi: ${at + 1}. ${describe(cmd)} ve ${at + 2}. ${describe(end)}. İçine gelecek komutları bu ikisinin arasına ekleyin.`,
+          `Eklendi: ${at + 1}. ${describe(cmd)} ve ${at + 2}. ${describe(end)}. ` +
+            'Seçili satır bloğun başı. Şimdi A tuşuyla ekleyeceğiniz komutlar bloğun içine girer. ' +
+            'Bloktan sonra komut eklemek için listenin sonundaki Yeni komut ekle satırını kullanın.',
           at,
         );
       } else {

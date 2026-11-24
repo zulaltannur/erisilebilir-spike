@@ -272,6 +272,62 @@ with sync_playwright() as p:
     out = run_program([{'type': 'speak', 'text': 'Merhaba'}], 2500)
     expect(page.evaluate('window.__lastSound') == 'speak:Merhaba' and 'Program bitti.' in out, 'bilgisayar konuştu')
 
+    # ---- Building blocks with the keyboard only ----
+    def add(button_text, fill=None):
+        page.keyboard.press('a')
+        page.wait_for_timeout(100)
+        page.click(f'#komut-alanlar .komut-secici button:text-is("{button_text}")')
+        page.wait_for_timeout(100)
+        for sel, val in (fill or {}).items():
+            page.select_option(sel, val) if sel.startswith('select') else page.fill(sel, val)
+        page.click('#komut-form button[type=submit]')
+        page.wait_for_timeout(150)
+
+    page.click('#program-temizle-btn')
+    page.focus('#program-liste')
+    add('Aynı anda yap')
+    add('Motoru döndür')
+    add('Nota çal')
+    texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
+    expect(texts[:4] == ['1. Aynı anda yap', '2. İçeride: Motor A, 1 tur, saat yönünde', '3. İçeride: Nota çal: Do, 0,5 saniye', '4. Aynı anda sonu'],
+           'blok: A ile eklenenler bloğun içine girdi ' + json.dumps(texts, ensure_ascii=False))
+    start = len(said())
+    page.keyboard.press('Control+Enter')
+    page.wait_for_timeout(1800)
+    out = said()[start:]
+    expect('Aynı anda 2 komut başlıyor.' in out and 'Program bitti.' in out, 'blok: aynı anda çalıştı')
+    # On the block's end line, A adds inside the block (last)
+    page.keyboard.press('End')
+    page.keyboard.press('ArrowUp')
+    add('Bekle')
+    texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
+    expect(texts[3] == '4. İçeride: 1 saniye bekle' and texts[4] == '5. Aynı anda sonu', 'blok: son satırda A içeri ekledi')
+
+    page.click('#program-temizle-btn')
+    page.focus('#program-liste')
+    add('Eğer / değilse')
+    add('Bilgisayardan ses çal')
+    page.keyboard.press('ArrowDown')
+    add('Bilgisayardan ses çal', {'select#alan-sound': 'drop'})
+    texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
+    expect(texts[:5] == ['1. Eğer renk sensörü B kırmızı görüyorsa', '2. İçeride: Ses çal: bip', '3. Değilse', '4. İçeride: Ses çal: su damlası', '5. Eğer sonu'],
+           'eğer/değilse: klavyeyle kuruldu ' + json.dumps(texts, ensure_ascii=False))
+    page.evaluate('window.__fake.color = 3')
+    page.wait_for_timeout(700)
+    start = len(said())
+    page.keyboard.press('Control+Enter')
+    page.wait_for_timeout(1000)
+    expect(page.evaluate('window.__lastSound') == 'drop' and 'Program bitti.' in said()[start:], 'eğer/değilse: değilse dalı çalıştı')
+
+    # An empty block gives a clear message and moves to the block
+    page.click('#program-temizle-btn')
+    page.focus('#program-liste')
+    add('Aynı anda yap')
+    start = len(said())
+    page.keyboard.press('Control+Enter')
+    page.wait_for_timeout(300)
+    expect(any('A tuşuna basın' in x for x in said()[start:]), 'boş blok: yol gösteren uyarı')
+
     # Examples dialog
     page.click('#ornek-btn')
     page.wait_for_timeout(200)
