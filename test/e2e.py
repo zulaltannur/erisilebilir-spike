@@ -1,0 +1,120 @@
+import os, sys, json, threading, functools, http.server, socketserver
+from playwright.sync_api import sync_playwright
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.join(HERE, '..')
+FAKE = open(os.path.join(HERE, 'fake_hub.js')).read()
+AXE = open(os.path.join(HERE, '..', 'node_modules', 'axe-core', 'axe.min.js')).read()
+
+Handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=APP_DIR)
+Handler.log_message = lambda *a: None
+httpd = socketserver.TCPServer(('127.0.0.1', 0), Handler)
+port = httpd.server_address[1]
+threading.Thread(target=httpd.serve_forever, daemon=True).start()
+
+results = []
+def expect(cond, name):
+    results.append((bool(cond), name))
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(executable_path=os.environ.get('CHROME_PATH'), args=['--no-sandbox'])
+    page = browser.new_page()
+    errors = []
+    page.on('pageerror', lambda e: errors.append(str(e)))
+    page.on('console', lambda m: errors.append(m.text) if m.type == 'error' else None)
+    page.add_init_script(FAKE)
+    page.goto(f'http://127.0.0.1:{port}/index.html')
+    page.wait_for_timeout(300)
+
+    said = lambda: page.evaluate('window.__said')
+    def has(text):
+        return any(text in s for s in said())
+
+    page.click('#calistir-btn', force=True)
+    page.wait_for_timeout(200)
+    expect(has('Önce Hub'), 'bağlı değilken çalıştır uyarısı')
+
+    page.click('#baglan-btn')
+    page.wait_for_timeout(1200)
+    expect(has('Hub bağlandı: Test Hub. Pil yüzde 80. Port A: motor, Port B: renk sensörü.'), 'bağlantı duyurusu')
+    expect(page.evaluate('document.activeElement.id') == 'kes-btn', 'odak Bağlantıyı kes düğmesinde')
+
+    page.evaluate('window.__fake.color = 9')
+    page.wait_for_timeout(500)
+    expect(has('Renk: kırmızı.'), 'renk değişimi duyurusu')
+
+    page.evaluate('window.__fake.motorPos = 30')
+    page.wait_for_timeout(120)
+    page.evaluate('window.__fake.motorPos = 90')
+    page.wait_for_timeout(600)
+    expect(has('Motor A durdu, 90 derece.'), 'motor elle çevrildi duyurusu')
+
+    page.focus('#kesfet-liste')
+    page.keyboard.press('ArrowDown')
+    page.keyboard.press('Enter')
+    page.wait_for_timeout(200)
+    expect(has('Port A: motor, 90 derece'), 'liste satırı yeniden okundu')
+    expect(page.get_attribute('#kesfet-liste', 'aria-activedescendant') == 'secenek-a', 'aktif seçenek')
+
+    page.keyboard.press('h')
+    page.wait_for_timeout(200)
+    expect(has('Hub: Test Hub, pil yüzde 80. Port A: motor, 90 derece. Port B: renk sensörü, kırmızı.'), 'H kısayolu')
+
+    page.keyboard.press('w')
+    page.wait_for_timeout(200)
+    expect(has('Keşfet bölümündesiniz. Hub bağlı.'), 'W kısayolu')
+
+    page.keyboard.press('Control+Enter')
+    page.wait_for_timeout(2200)
+    expect(has('Program başladı.'), 'program başladı')
+    expect(has('Adım 1: Motor A bir tur dönüyor'), 'adım duyurusu')
+    expect(has('Program bitti.'), 'program bitti')
+    expect(not any('Takıldı' in x or 'takıldı' in x for x in said()[:3]), 'bağlanırken tek tek takıldı duyurusu yok')
+    expect(sum(1 for x in said() if x.startswith('Motor A durdu')) == 1, 'program sonrası gereksiz motor duyurusu yok')
+
+    page.check('input[name="motor-port"][value="1"]')
+    page.click('#calistir-btn', force=True)
+    page.wait_for_timeout(200)
+    expect(has("Port B'de motor yok. Motor Port A'da."), 'yanlış port uyarısı')
+
+    page.evaluate('window.__fake.colorAttached = false')
+    page.wait_for_timeout(400)
+    expect(has('Port B boşaldı.'), 'parça çıkarıldı')
+    page.evaluate('window.__fake.colorAttached = true')
+    page.wait_for_timeout(400)
+    expect(has("Port B'ye renk sensörü takıldı."), 'parça takıldı')
+
+    page.focus('#kesfet-liste')
+    page.keyboard.press('?')
+    page.wait_for_timeout(200)
+    expect(page.evaluate("document.getElementById('yardim-dialog').open"), 'yardım penceresi açıldı')
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(200)
+    expect(not page.evaluate("document.getElementById('yardim-dialog').open"), 'yardım penceresi kapandı')
+
+    # Accessibility scan
+    page.add_script_tag(content=AXE)
+    axe = page.evaluate("axe.run(document, {runOnly: ['wcag2a','wcag2aa','wcag21aa','wcag22aa','best-practice']})")
+    violations = [(v['id'], v['help'], len(v['nodes'])) for v in axe['violations']]
+    expect(not violations, 'axe erişilebilirlik taraması: ' + json.dumps(violations, ensure_ascii=False))
+
+    page.click('#kes-btn')
+    page.wait_for_timeout(300)
+    expect(has('Hub bağlantısı koptu.'), 'bağlantı koptu duyurusu')
+    expect(page.evaluate('document.activeElement.id') == 'baglan-btn', 'odak Bağlan düğmesine döndü')
+
+    page.set_viewport_size({'width': 320, 'height': 800})
+    sw = page.evaluate('document.documentElement.scrollWidth')
+    expect(sw <= 320, f'320px genişlikte yatay kaydırma yok ({sw})')
+    page.screenshot(path=os.path.join(HERE, 'mobile.png'), full_page=True)
+    page.set_viewport_size({'width': 1100, 'height': 900})
+    page.screenshot(path=os.path.join(HERE, 'desktop.png'), full_page=True)
+
+    expect(not errors, 'konsol hatası yok: ' + '; '.join(errors))
+    print('\n'.join(said()))
+    browser.close()
+
+print('---')
+for ok, name in results:
+    print(('GEÇTİ  ' if ok else 'KALDI  ') + name)
+httpd.shutdown()

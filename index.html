@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Erişilebilir SPIKE: Bağlan ve Keşfet</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#kesfet-baslik">Keşfet bölümüne atla</a>
+
+  <!-- Screen reader announcements. Visually hidden, always present. -->
+  <div id="duyuru-normal" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+  <div id="duyuru-acil" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
+
+  <header>
+    <h1>Erişilebilir SPIKE</h1>
+    <p>SPIKE Essential setiyle uyumlu, ekran okuyucu öncelikli robotik uygulaması. Deneme sürümü.</p>
+  </header>
+
+  <main>
+    <section aria-labelledby="baglanti-baslik">
+      <h2 id="baglanti-baslik">Bağlantı</h2>
+      <p id="baglanti-yardim"></p>
+      <div class="buton-satiri">
+        <button type="button" id="baglan-btn" aria-describedby="baglanti-yardim">Bağlan</button>
+        <button type="button" id="kes-btn" hidden>Bağlantıyı kes</button>
+      </div>
+      <p>Durum: <span id="baglanti-durum">Bağlı değil</span></p>
+    </section>
+
+    <section aria-labelledby="kesfet-baslik">
+      <h2 id="kesfet-baslik" tabindex="-1">Keşfet</h2>
+      <p id="kesfet-yardim">
+        Bu listede Hub'ı ve portlara takılı parçaları canlı olarak takip edebilirsiniz.
+        Ok tuşlarıyla gezinin. Enter tuşu seçili satırı yeniden okur.
+        Motoru elle çevirin ya da renk sensörüne bir parça tutun; değişiklikler size bildirilir.
+      </p>
+      <div id="kesfet-liste" class="liste" role="listbox" tabindex="0"
+           aria-labelledby="kesfet-baslik" aria-describedby="kesfet-yardim"
+           data-kisayol-alani>
+        <div role="option" id="secenek-hub" aria-selected="true">Hub: bağlı değil</div>
+        <div role="option" id="secenek-a" aria-selected="false">Port A: boş</div>
+        <div role="option" id="secenek-b" aria-selected="false">Port B: boş</div>
+      </div>
+    </section>
+
+    <section aria-labelledby="deneme-baslik">
+      <h2 id="deneme-baslik">Motor denemesi</h2>
+      <fieldset>
+        <legend>Motor hangi portta?</legend>
+        <label><input type="radio" name="motor-port" value="0" checked> Port A</label>
+        <label><input type="radio" name="motor-port" value="1"> Port B</label>
+      </fieldset>
+      <div class="buton-satiri">
+        <button type="button" id="calistir-btn" aria-keyshortcuts="Control+Enter" aria-disabled="true">
+          Motoru bir tur döndür
+        </button>
+        <button type="button" id="durdur-btn" class="durdur" aria-keyshortcuts="Escape">Durdur</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="gecmis-baslik">
+      <h2 id="gecmis-baslik">Olay geçmişi</h2>
+      <p>En yeni olay en üstte.</p>
+      <ol id="gecmis" class="gecmis"></ol>
+    </section>
+
+    <section aria-labelledby="ayarlar-baslik">
+      <h2 id="ayarlar-baslik">Ayarlar</h2>
+      <label class="onay">
+        <input type="checkbox" id="ses-ayari" checked>
+        Uyarı seslerini çal
+      </label>
+      <p>
+        <button type="button" id="yardim-btn" aria-keyshortcuts="?">Kısayol listesi</button>
+      </p>
+    </section>
+  </main>
+
+  <dialog id="yardim-dialog" aria-labelledby="yardim-baslik">
+    <h2 id="yardim-baslik">Kısayol listesi</h2>
+    <p>Kısayollar her dilde aynıdır. Harf kısayolları Keşfet listesindeyken çalışır.</p>
+    <table>
+      <caption class="visually-hidden">Tuşlar ve görevleri</caption>
+      <thead>
+        <tr><th scope="col">Tuş</th><th scope="col">Görev</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Ctrl ve Enter</td><td>Programı çalıştır</td></tr>
+        <tr><td>Escape</td><td>Robotu hemen durdur</td></tr>
+        <tr><td>Soru işareti</td><td>Bu listeyi aç</td></tr>
+        <tr><td>Yukarı ve aşağı ok</td><td>Listede gezin</td></tr>
+        <tr><td>Home ve End</td><td>Listenin başına ya da sonuna git</td></tr>
+        <tr><td>Enter</td><td>Seçili satırı yeniden oku</td></tr>
+        <tr><td>R, Run</td><td>Çalıştır</td></tr>
+        <tr><td>H, Hub</td><td>Hub durumunu oku</td></tr>
+        <tr><td>W, Where am I</td><td>Neredeyim</td></tr>
+      </tbody>
+    </table>
+    <form method="dialog">
+      <button type="submit">Kapat</button>
+    </form>
+  </dialog>
+
+  <footer>
+    <p>LEGO ve SPIKE, LEGO Group'un ticari markalarıdır. Bu proje LEGO Group ile bağlantılı değildir.</p>
+  </footer>
+</body>
+</html>

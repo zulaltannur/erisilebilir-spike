@@ -1,0 +1,11 @@
+{
+  "name": "erisilebilir-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/protocol.test.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.10.0"
+  }
+}
