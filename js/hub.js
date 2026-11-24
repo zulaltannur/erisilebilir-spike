@@ -80,6 +80,26 @@ export class Hub extends EventTarget {
     if (!P.parseStatus(notif)) throw new Error('Hub canlı veri göndermeyi kabul etmedi.');
   }
 
+  // Troubleshooting: lets the user pick ANY Bluetooth device and reports
+  // its name and which LEGO protocols it offers. Does not stay connected.
+  static async diagnose() {
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [P.SERVICE_UUID, P.LWP_SERVICE_UUID],
+    });
+    const result = { name: device.name || '', app3: false, lwp: false, error: '' };
+    try {
+      const server = await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+      result.app3 = services.some((s) => s.uuid === P.SERVICE_UUID);
+      result.lwp = services.some((s) => s.uuid === P.LWP_SERVICE_UUID);
+      server.disconnect();
+    } catch (err) {
+      result.error = err.message || String(err);
+    }
+    return result;
+  }
+
   disconnect() {
     if (this.connected) this.device.gatt.disconnect();
   }

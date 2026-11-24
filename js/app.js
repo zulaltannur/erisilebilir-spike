@@ -405,6 +405,16 @@ $('kes-btn').addEventListener('click', () => hub.disconnect());
 $('calistir-btn').addEventListener('click', runMotorTest);
 $('durdur-btn').addEventListener('click', stopProgram);
 $('yardim-btn').addEventListener('click', () => $('yardim-dialog').showModal());
+$('tani-btn').addEventListener('click', async () => {
+  if (!Hub.isSupported()) return say(T.notSupported, { urgent: true });
+  say(T.pairHelp);
+  try {
+    say(T.diagnoseResult(await Hub.diagnose()));
+  } catch (err) {
+    if (err && err.name === 'NotFoundError') say(T.connectCancelled);
+    else say(T.connectFailed(err && err.message ? err.message : ''), { urgent: true });
+  }
+});
 $('ses-ayari').addEventListener('change', (e) => setSoundsEnabled(e.target.checked));
 
 $('baglanti-yardim').textContent = Hub.isSupported() ? T.connectHelp : T.notSupported;

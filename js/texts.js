@@ -41,7 +41,13 @@ export const T = {
   connected: (name, battery, ports) =>
     `Hub bağlandı: ${name || 'isimsiz Hub'}.${battery != null ? ` Pil yüzde ${battery}.` : ''}${ports ? ` ${ports}.` : ''}`,
   connectCancelled:
-    'Hub seçilmedi. Liste boş göründüyse: Hub\'ın açık olduğundan emin olun ve LEGO uygulaması açıksa kapatın, çünkü Hub aynı anda tek bir uygulamaya bağlanabilir. Sonra tekrar Bağlan düğmesine basın.',
+    'Hub seçilmedi. Listede Hub görünmediyse: Hub\'ın açık olduğundan emin olun ve LEGO uygulaması açıksa kapatın, çünkü Hub aynı anda tek bir uygulamaya bağlanabilir. Sonra tekrar Bağlan düğmesine basın. Yine görünmezse Ayarlar bölümündeki Sorun giderme düğmesini deneyin.',
+  pairHelp:
+    'Chrome\'un açtığı pencerede Eşle düğmesi, listeden bir cihaz seçilene kadar pasif kalır. Liste boşsa Chrome Hub\'ı göremiyor demektir.',
+  diagnoseResult: (r) =>
+    r.error
+      ? `Sorun giderme: ${r.name || 'isimsiz cihaz'} seçildi ama bağlanılamadı. ${r.error}`
+      : `Sorun giderme: ${r.name || 'isimsiz cihaz'}. Yeni protokol: ${r.app3 ? 'var' : 'yok'}. Eski protokol: ${r.lwp ? 'var' : 'yok'}.`,
   bluetoothOff:
     'Bilgisayarın Bluetooth\'u kapalı görünüyor. Windows ayarlarından Bluetooth\'u açıp tekrar deneyin.',
   oldFirmware:
