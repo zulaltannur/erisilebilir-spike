@@ -66,6 +66,12 @@
         <button type="button" id="program-durdur-btn" class="durdur" aria-keyshortcuts="Escape">Durdur</button>
         <button type="button" id="program-temizle-btn">Programı temizle</button>
       </div>
+      <div class="buton-satiri">
+        <button type="button" id="ornek-btn">Örnek programlar</button>
+        <button type="button" id="kaydet-btn">Dosyaya kaydet</button>
+        <button type="button" id="ac-btn">Dosyadan aç</button>
+        <input type="file" id="dosya-girdi" accept=".json,application/json" hidden>
+      </div>
     </section>
 
     <section aria-labelledby="deneme-baslik">
@@ -117,6 +123,15 @@
         <button type="submit">Tamam</button>
         <button type="button" id="komut-iptal">İptal</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="ornek-dialog" aria-labelledby="ornek-baslik">
+    <h2 id="ornek-baslik">Örnek programlar</h2>
+    <p>Bir örnek seçince mevcut programın yerine geçer. Eski programa dönmek için Ctrl ve Z.</p>
+    <ul id="ornek-liste" class="komut-secici ornekler"></ul>
+    <form method="dialog">
+      <button type="submit">Kapat</button>
     </form>
   </dialog>
 

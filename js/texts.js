@@ -88,7 +88,7 @@ export const T = {
   nothingRunning: 'Şu an çalışan bir program yok.',
   programEmpty: 'Program boş. Önce A tuşuyla ya da Komut ekle düğmesiyle komut ekleyin.',
   programNeedsEssential: 'Program şimdilik sadece SPIKE Essential Hub\'ında çalışıyor.',
-  programRound: (r, t) => `Tekrar: ${r}. tur, ${t} turdan.`,
+  programRound: (r, t) => (t ? `Tekrar: ${r}. tur, ${t} turdan.` : `Sonsuz tekrar: ${r}. tur.`),
   programRunError: (m) => `Program durdu. ${m}`,
 
   whereAmI: (section, connected) =>

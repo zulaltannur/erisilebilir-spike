@@ -153,7 +153,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     expect(page.evaluate("document.getElementById('komut-dialog').open"), 'editör: ekleme penceresi açıldı')
     expect(page.evaluate("document.activeElement.textContent") == 'Motoru döndür', 'editör: odak ilk komut düğmesinde')
-    expect(page.evaluate("document.querySelectorAll('.komut-secici button').length") == 10, 'editör: 10 komut listelendi')
+    expect(page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length") == 19, 'editör: 19 komut listelendi')
     page.add_script_tag(content=AXE)
     axe2 = page.evaluate("axe.run(document, {runOnly: ['wcag2a','wcag2aa','wcag21aa','wcag22aa','best-practice']})")
     v2 = [(v['id'], len(v['nodes'])) for v in axe2['violations']]
@@ -218,10 +218,92 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     expect(has('Program durduruldu.'), 'çalıştırma: Escape ile durdu')
 
+    # ---- New commands, run on the simulated Essential Hub ----
+    def run_program(prog, wait_ms):
+        page.evaluate('p => window.__erisilebilir.editor.replaceProgram(p, "")', prog)
+        start = len(said())
+        page.focus('#program-liste')
+        page.keyboard.press('Control+Enter')
+        page.wait_for_timeout(wait_ms)
+        return said()[start:]
+
+    out = run_program([{'type': 'sound', 'sound': 'drum'}], 1200)
+    expect(page.evaluate('window.__lastSound') == 'drum' and 'Program bitti.' in out, 'ses: davul çaldı')
+
+    out = run_program([{'type': 'parallelStart'}, {'type': 'motorRun', 'port': 0, 'amount': 1, 'unit': 'rotations', 'direction': 'cw'},
+                       {'type': 'note', 'note': 'C', 'seconds': 0.4}, {'type': 'parallelEnd'}], 2000)
+    expect('Aynı anda 2 komut başlıyor.' in out and 'Program bitti.' in out, 'aynı anda: iki komut birlikte ' + json.dumps(out, ensure_ascii=False))
+    i_motor = next((k for k, x in enumerate(out) if 'Motor A, 1 tur' in x), 99)
+    i_note = next((k for k, x in enumerate(out) if 'Nota çal' in x), 99)
+    i_done = out.index('Program bitti.') if 'Program bitti.' in out else -1
+    expect(i_motor < i_done and i_note < i_done, 'aynı anda: ikisi de bitmeden program bitmedi')
+
+    page.evaluate('window.__fake.color = 9')
+    page.wait_for_timeout(700)
+    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9}, {'type': 'sound', 'sound': 'beep'},
+                       {'type': 'else'}, {'type': 'sound', 'sound': 'drop'}, {'type': 'ifEnd'}], 1000)
+    expect('Eğer renk sensörü B kırmızı görüyorsa: evet.' in out and page.evaluate('window.__lastSound') == 'beep', 'eğer: evet dalı')
+    page.evaluate('window.__fake.color = 3')
+    page.wait_for_timeout(700)
+    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9}, {'type': 'sound', 'sound': 'beep'},
+                       {'type': 'else'}, {'type': 'sound', 'sound': 'drop'}, {'type': 'ifEnd'}], 1000)
+    expect('Eğer renk sensörü B kırmızı görüyorsa: hayır.' in out and page.evaluate('window.__lastSound') == 'drop', 'eğer: değilse dalı')
+
+    out = run_program([{'type': 'repeatStart', 'forever': 'yes', 'times': 3}, {'type': 'wait', 'seconds': 0.3}, {'type': 'repeatEnd'}], 1100)
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
+    out = said()[-12:]
+    expect(any('Sonsuz tekrar: 3. tur.' in x for x in said()) and 'Program durduruldu.' in out, 'sonsuz tekrar ve Escape')
+
+    out = run_program([{'type': 'sound', 'sound': 'beep'}, {'type': 'stopProgram'}, {'type': 'sound', 'sound': 'siren'}], 1000)
+    expect('Program bitti.' in out and page.evaluate('window.__lastSound') == 'beep', 'programı bitir komutu')
+
+    out = run_program([{'type': 'parallelStart'}, {'type': 'sound', 'sound': 'beep'}, {'type': 'parallelEnd'}], 300)
+    expect(any('en az iki komut' in x for x in out), 'doğrulama: aynı anda bloğunda tek komut')
+
+    out = run_program([{'type': 'hubLight', 'color': 9}], 500)
+    hub_light = [m for m in page.evaluate('window.__lwpSent') if len(m) > 6 and m[2] == 0x81 and m[3] == 0x32]
+    expect(hub_light and hub_light[-1][5:] == [0x51, 0, 9], 'Hub ışığı komutu ' + json.dumps(hub_light[-1:]))
+
+    out = run_program([{'type': 'motorGoTo', 'port': 0, 'position': 180}], 1500)
+    goto = [m for m in page.evaluate('window.__lwpSent') if len(m) > 9 and m[2] == 0x81 and m[5] == 0x0b][-1]
+    expect('Program bitti.' in out, 'motoru konuma getir ' + json.dumps(goto))
+
+    out = run_program([{'type': 'speak', 'text': 'Merhaba'}], 2500)
+    expect(page.evaluate('window.__lastSound') == 'speak:Merhaba' and 'Program bitti.' in out, 'bilgisayar konuştu')
+
+    # Examples dialog
+    page.click('#ornek-btn')
+    page.wait_for_timeout(200)
+    expect(page.evaluate("document.activeElement.textContent") == 'Merhaba robot', 'örnekler: odak ilk örnekte')
+    page.click('#ornek-liste button:has-text("İleri geri")')
+    page.wait_for_timeout(200)
+    expect(has('Örnek yüklendi: İleri geri. Programda 5 komut var.'), 'örnekler: yüklendi')
+    page.add_script_tag(content=AXE)
+    page.click('#ornek-btn')
+    axe3 = page.evaluate("axe.run(document, {runOnly: ['wcag2a','wcag2aa','wcag21aa','wcag22aa','best-practice']})")
+    expect(not axe3['violations'], 'axe: örnekler penceresi ' + json.dumps([(v['id'], len(v['nodes'])) for v in axe3['violations']]))
+    page.keyboard.press('Escape')
+
+    # Picker groups
+    page.focus('#program-liste')
+    page.keyboard.press('a')
+    page.wait_for_timeout(200)
+    heads = page.evaluate("[...document.querySelectorAll('#komut-alanlar h3')].map(h => h.textContent)")
+    count = page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length")
+    expect(len(heads) == 5 and count == 19, f'seçici: 5 grup, {count} komut')
+    page.screenshot(path=os.path.join(HERE, 'picker.png'), full_page=True)
+    page.keyboard.press('Escape')
+
+    # Save to file
+    with page.expect_download() as dl:
+        page.click('#kaydet-btn')
+    expect(dl.value.suggested_filename == 'robot-programi.json', 'dosyaya kaydet')
+
     # Program survives a page reload
     page.reload()
     page.wait_for_timeout(500)
-    expect('10 saniye bekle' in page.inner_text('#program-liste'), 'editör: program kaydedildi')
+    expect('Tekrarla 3 kez' in page.inner_text('#program-liste'), 'editör: program kaydedildi')
 
     expect(not errors, 'konsol hatası yok: ' + '; '.join(errors))
     print('\n'.join(said()))

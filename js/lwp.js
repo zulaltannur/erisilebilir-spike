@@ -21,6 +21,7 @@ const T = {
 };
 
 const PROP_BATTERY = 0x06;
+const RGB_LIGHT = 0x17; // the Hub's own status light (internal port)
 
 // Device type ids -> our device kinds
 const MOTOR_TYPES = new Set([0x26, 0x2e, 0x2f, 0x30, 0x31, 0x41, 0x4b, 0x4c]);
@@ -56,6 +57,7 @@ export class LwpSession {
     this.char = characteristic;
     this.emit = emit;
     this.battery = null;
+    this.rgbPort = null;
     this.ports = new Map(); // port -> { kind, type, ...values }
     this.pending = new Map(); // port -> { resolve, timer, sawProgress }
     this.writeQueue = Promise.resolve();
@@ -161,6 +163,12 @@ export class LwpSession {
     return this._command(port, 0x51, [MATRIX_MODE_PIXELS, ...bytes], { wait: false });
   }
 
+  setHubLight(color) {
+    if (this.rgbPort == null) return Promise.resolve(false);
+    // WriteDirectModeData, mode 0 = color index (0 = off)
+    return this._command(this.rgbPort, 0x51, [0x00, color], { wait: false });
+  }
+
   deviceAt(port) {
     return this.ports.get(port) || null;
   }
@@ -217,7 +225,11 @@ export class LwpSession {
       case T.HUB_ATTACHED_IO: {
         const port = m[p];
         const event = m[p + 1];
-        if (port > 1) break; // only external ports A and B
+        if (port > 1) {
+          // internal ports: remember where the Hub's own light is
+          if (event === 1 && v.getUint16(p + 2, true) === RGB_LIGHT) this.rgbPort = port;
+          break;
+        }
         if (event === 0) {
           this.ports.delete(port);
         } else if (event === 1) {

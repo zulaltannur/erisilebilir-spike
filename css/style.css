@@ -161,6 +161,8 @@ input[type="radio"], input[type="checkbox"] {
 }
 .komut-secici button { width: 100%; text-align: left; }
 button.geri { margin-bottom: 1rem; background: transparent; color: var(--text); }
+.ornekler p { margin: 0.25rem 0 0.75rem; }
+dialog h3 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
 .ipucu { font-size: 0.9rem; color: var(--muted); }
 select, .alan input[type="text"] {
   font: inherit;
@@ -205,6 +207,8 @@ footer { margin-top: 3rem; font-size: 0.9rem; color: var(--muted); }
 }
 .komut-secici button { width: 100%; text-align: left; }
 button.geri { margin-bottom: 1rem; background: transparent; color: var(--text); }
+.ornekler p { margin: 0.25rem 0 0.75rem; }
+dialog h3 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
 .ipucu { font-size: 0.9rem; color: var(--muted); }
 select, .alan input[type="text"] {
   font: inherit;

@@ -1,6 +1,7 @@
 import { Hub } from './hub.js';
 import { Announcer } from './announcer.js';
-import { play, setSoundsEnabled } from './sounds.js';
+import { play, setSoundsEnabled, unlockAudio } from './sounds.js';
+import { EXAMPLES } from './examples.js';
 import { T, PORT_NAMES, DEVICE_NAMES, colorName, isRealColor } from './texts.js';
 import { motorOneTurnProgram, parseConsoleLine } from './programs.js';
 import { Editor } from './editor.js';
@@ -361,8 +362,6 @@ const editor = new Editor({
   say,
 });
 
-const PROGRAM_SOUNDS = { beep: 'attach', bell: 'ready', success: 'programEnd' };
-
 const runner = new Runner({
   getSession: () => hub.lwp,
   onStep: (index, n, text) => {
@@ -372,6 +371,10 @@ const runner = new Runner({
   onRound: (index, round, times) => {
     editor.setRunning(index);
     say(T.programRound(round, times));
+  },
+  onInfo: (index, text) => {
+    editor.setRunning(index);
+    say(text);
   },
   onDone: (completed) => {
     state.programRunning = false;
@@ -390,9 +393,7 @@ const runner = new Runner({
     editor.setRunning(-1);
     play('error');
     say(T.programRunError(message), { urgent: true });
-    if (hub.lwp) hub.lwp.stopAll();
   },
-  playSound: (name) => play(PROGRAM_SOUNDS[name] || 'attach', { essential: true }),
 });
 
 function runProgram() {
@@ -533,6 +534,72 @@ $('ekle-btn').addEventListener('click', () => editor.openAdd());
 $('program-calistir-btn').addEventListener('click', runProgram);
 $('program-durdur-btn').addEventListener('click', stopProgram);
 $('program-temizle-btn').addEventListener('click', () => editor.clear());
+
+// Audio may only start after a user action: unlock it on every key press and click.
+document.addEventListener('keydown', unlockAudio, true);
+document.addEventListener('pointerdown', unlockAudio, true);
+
+// ---------- Example programs ----------
+
+const examplesDialog = $('ornek-dialog');
+const examplesList = $('ornek-liste');
+EXAMPLES.forEach((ex, i) => {
+  const li = document.createElement('li');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = ex.name;
+  btn.setAttribute('aria-describedby', `ornek-aciklama-${i}`);
+  const p = document.createElement('p');
+  p.id = `ornek-aciklama-${i}`;
+  p.textContent = ex.about;
+  btn.addEventListener('click', () => {
+    examplesDialog.close();
+    editor.replaceProgram(
+      JSON.parse(JSON.stringify(ex.program)),
+      `Örnek yüklendi: ${ex.name}. Programda ${ex.program.length} komut var. Eski programa dönmek için Ctrl ve Z.`,
+    );
+    editor.list.focus();
+  });
+  li.append(btn, p);
+  examplesList.append(li);
+});
+$('ornek-btn').addEventListener('click', () => {
+  examplesDialog.showModal();
+  examplesList.querySelector('button').focus();
+});
+
+// ---------- Save to / open from a file ----------
+
+$('kaydet-btn').addEventListener('click', () => {
+  if (!editor.program.length) return say(T.programEmpty);
+  const blob = new Blob([JSON.stringify({ app: 'erisilebilir-spike', version: 1, program: editor.program }, null, 2)], {
+    type: 'application/json',
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'robot-programi.json';
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  say('Program, İndirilenler klasörüne robot-programi.json adıyla kaydedildi.');
+});
+
+$('ac-btn').addEventListener('click', () => $('dosya-girdi').click());
+$('dosya-girdi').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const program = Array.isArray(data) ? data : data.program;
+    if (!Array.isArray(program)) throw new Error('format');
+    editor.replaceProgram(program, `Dosya açıldı: ${file.name}. Programda ${program.length} komut var.`);
+    editor.list.focus();
+  } catch {
+    say('Bu dosya açılamadı. Bu uygulamayla kaydedilmiş bir program dosyası seçin.', { urgent: true });
+  }
+});
 $('durdur-btn').addEventListener('click', stopProgram);
 $('yardim-btn').addEventListener('click', () => $('yardim-dialog').showModal());
 $('tani-btn').addEventListener('click', async () => {
@@ -554,3 +621,6 @@ $('ses-ayari').addEventListener('change', (e) => setSoundsEnabled(e.target.check
 
 $('baglanti-yardim').textContent = Hub.isSupported() ? T.connectHelp : T.notSupported;
 setConnectedUI(false);
+
+// Test hook: lets the automated tests load programs directly.
+window.__erisilebilir = { editor };

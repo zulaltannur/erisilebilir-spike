@@ -8,7 +8,14 @@ SPIKE Essential robotik setiyle uyumlu, **ekran okuyucu öncelikli** bir web uyg
 
 - **Bağlan:** Web Bluetooth ile Hub'a bağlanır. Hub'ın adını, pil durumunu ve portlara takılı parçaları tek cümlede bildirir.
 - **Keşfet listesi:** Hub'ı, Port A'yı ve Port B'yi canlı gösterir. Bir parça takılınca ya da çıkarılınca, motor elle çevrilince veya renk sensörü yeni bir renk görünce ekran okuyucuya bildirir.
-- **Program editörü:** Klavyeyle kurulan komut listesi. Motor döndür, sürekli döndür, durdur, hız, bekle, ışık matrisi deseni, ışığı kapat, bilgisayardan ses, renk görene kadar bekle ve tekrarla komutları var. Program tarayıcıda kaydedilir. Essential Hub'ında adım adım çalışır, her adım ve her tekrar turu duyurulur.
+- **Program editörü:** Klavyeyle kurulan komut listesi. Komut eklerken bütün komutlar gruplar halinde düğme olarak listelenir:
+  - Motor: döndür (tur, derece, saniye), bir konuma getir, sürekli döndür, durdur, hız
+  - Işık: matriste desen, tek kare, matrisi kapat, Hub ışığı
+  - Ses: bilgisayardan ses (bip, zil, davul, alkış, siren ve diğerleri), nota çal, bilgisayar konuşsun
+  - Bekleme: süre kadar bekle, renk görene kadar bekle
+  - Akış: tekrarla (belli sayıda ya da sonsuza kadar), eğer / değilse, aynı anda yap, programı bitir
+
+  Program tarayıcıda kaydedilir, dosyaya kaydedilip dosyadan açılabilir. Hazır örnek programlar var. Essential Hub'ında adım adım çalışır; her adım, her tekrar turu ve her koşulun sonucu duyurulur.
 - **Motor denemesi:** Seçilen porttaki motoru bir tur döndürür. Programın her adımı çalışırken bildirilir.
 - **Olay geçmişi:** Bütün bildirimlerin yazılı listesi. Braille ekran kullanıcıları için de uygundur.
 - **Uyarı sesleri:** Bağlanma, program bitti ve hata için kısa sesler. Ayarlardan kapatılabilir.

@@ -1,6 +1,6 @@
 // Accessible program editor: a listbox of commands plus an add/edit dialog.
 
-import { COMMAND_TYPES, describe, newCommand, depths } from './program-model.js';
+import { COMMAND_TYPES, GROUPS, describe, newCommand, depths, partnerOf, isBlockStart, isBlockEnd, blockEndFor } from './program-model.js';
 
 const STORAGE_KEY = 'erisilebilir-spike-program';
 const ADD_ID = 'komut-ekle-secenek';
@@ -103,6 +103,10 @@ export class Editor {
     return n === 0 ? 'Program boş.' : `Programda ${n} komut var.`;
   }
 
+  replaceProgram(program, message) {
+    this._change(() => (this.program = program.filter((c) => c && COMMAND_TYPES[c.type])), message, 0);
+  }
+
   clear() {
     if (!this.program.length) return this.say('Program zaten boş.');
     this._change(() => (this.program = []), 'Program temizlendi. Geri almak için Ctrl ve Z.', 0);
@@ -172,17 +176,26 @@ export class Editor {
     const i = this.active;
     if (i >= this.program.length) return;
     const cmd = this.program[i];
-    if (cmd.type === 'repeatStart' || cmd.type === 'repeatEnd') {
-      // Remove the whole pair but keep the commands inside.
-      const pair = this._pairOf(i);
-      const [a, b] = [Math.min(i, pair), Math.max(i, pair)];
+    if (isBlockStart(cmd.type) || isBlockEnd(cmd.type)) {
+      // Remove the block's markers but keep the commands inside it.
+      const j = partnerOf(this.program, i);
+      const [a, b] = [Math.min(i, j), Math.max(i, j)];
+      const remove = new Set([a, b]);
+      // An "else" that belongs to this if-block goes too.
+      if (this.program[a].type === 'ifStart') {
+        let depth = 0;
+        for (let k = a + 1; k < b; k++) {
+          const t = this.program[k].type;
+          if (isBlockStart(t)) depth++;
+          if (isBlockEnd(t)) depth--;
+          if (t === 'else' && depth === 0) remove.add(k);
+        }
+      }
+      const name = describe(this.program[a]);
       this._change(
-        () => {
-          this.program.splice(b, 1);
-          this.program.splice(a, 1);
-        },
-        `Tekrar kaldırıldı, içindeki komutlar yerinde kaldı. ${this._summaryAfter(-2)}`,
-        Math.min(a, this.program.length - 2),
+        () => (this.program = this.program.filter((_, k) => !remove.has(k))),
+        `Blok kaldırıldı: ${name}. İçindeki komutlar yerinde kaldı. ${this._summaryAfter(-remove.size)}`,
+        Math.max(0, Math.min(a, this.program.length - remove.size)),
       );
       return;
     }
@@ -193,18 +206,6 @@ export class Editor {
   _summaryAfter(delta) {
     const n = this.program.length + delta;
     return n <= 0 ? 'Program boş.' : `${n} komut kaldı.`;
-  }
-
-  _pairOf(i) {
-    const step = this.program[i].type === 'repeatStart' ? 1 : -1;
-    let depth = 0;
-    for (let j = i; j >= 0 && j < this.program.length; j += step) {
-      const t = this.program[j].type;
-      if (t === 'repeatStart') depth += step;
-      if (t === 'repeatEnd') depth -= step;
-      if (depth === 0) return j;
-    }
-    return i;
   }
 
   move(delta) {
@@ -258,20 +259,25 @@ export class Editor {
     this.fields.textContent = '';
     delete this.fields.dataset.type;
     this._submitButton().hidden = true;
-    const list = document.createElement('ul');
-    list.className = 'komut-secici';
-    list.setAttribute('aria-label', 'Komutlar');
-    for (const [type, def] of Object.entries(COMMAND_TYPES)) {
-      if (def.hidden) continue;
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = def.name;
-      btn.addEventListener('click', () => this._chooseType(type));
-      li.append(btn);
-      list.append(li);
+    for (const [group, groupName] of Object.entries(GROUPS)) {
+      const heading = document.createElement('h3');
+      heading.textContent = groupName;
+      heading.id = `grup-${group}`;
+      const list = document.createElement('ul');
+      list.className = 'komut-secici';
+      list.setAttribute('aria-labelledby', heading.id);
+      for (const [type, def] of Object.entries(COMMAND_TYPES)) {
+        if (def.hidden || def.group !== group) continue;
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = def.name;
+        btn.addEventListener('click', () => this._chooseType(type));
+        li.append(btn);
+        list.append(li);
+      }
+      this.fields.append(heading, list);
     }
-    this.fields.append(list);
   }
 
   _chooseType(type) {
@@ -297,7 +303,9 @@ export class Editor {
 
   openEdit(i) {
     const cmd = this.program[i];
-    if (cmd.type === 'repeatEnd') return this.say('Tekrar sonunun ayarı yok. Tekrarı değiştirmek için başlangıcına gidin.');
+    if (!COMMAND_TYPES[cmd.type].fields.length) {
+      return this.say(`${describe(cmd)}: bu komutun ayarı yok.`);
+    }
     this.dialogMode = { kind: 'edit', index: i };
     this.title.textContent = `Komutu düzenle: ${COMMAND_TYPES[cmd.type].name}`;
     this._renderFields(cmd);
@@ -311,6 +319,7 @@ export class Editor {
     this.fields.textContent = '';
     for (const f of COMMAND_TYPES[cmd.type].fields) {
       if (f.type === 'choice') this._select(`alan-${f.key}`, f.label, f.options, cmd[f.key]);
+      else if (f.type === 'text') this._text(`alan-${f.key}`, f.label, f, cmd[f.key]);
       else this._number(`alan-${f.key}`, f.label, f, cmd[f.key]);
     }
     if (!COMMAND_TYPES[cmd.type].fields.length) {
@@ -365,12 +374,26 @@ export class Editor {
     return input;
   }
 
+  _text(id, label, f, value) {
+    const row = this._row(id, label);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = id;
+    input.maxLength = f.maxLength || 120;
+    input.value = value;
+    input.autocomplete = 'off';
+    row.append(input);
+    return input;
+  }
+
   _readFields() {
     const type = this.fields.dataset.type;
     const cmd = { type };
     for (const f of COMMAND_TYPES[type].fields) {
       const el = this.fields.querySelector(`#alan-${f.key}`);
-      if (f.type === 'number') {
+      if (f.type === 'text') {
+        cmd[f.key] = el.value.trim().slice(0, f.maxLength || 120) || COMMAND_TYPES[type].defaults[f.key];
+      } else if (f.type === 'number') {
         let n = parseFloat(String(el.value).replace(',', '.'));
         if (Number.isNaN(n)) n = COMMAND_TYPES[type].defaults[f.key];
         n = Math.max(f.min, Math.min(f.max, n));
@@ -390,10 +413,11 @@ export class Editor {
     const cmd = this._readFields();
     if (mode.kind === 'add') {
       const at = mode.index;
-      if (cmd.type === 'repeatStart') {
+      if (isBlockStart(cmd.type)) {
+        const end = { type: blockEndFor(cmd.type) };
         this._change(
-          () => this.program.splice(at, 0, cmd, { type: 'repeatEnd' }),
-          `Eklendi: ${at + 1}. ${describe(cmd)} ve ${at + 2}. Tekrar sonu. Tekrarlanacak komutları bu ikisinin arasına ekleyin.`,
+          () => this.program.splice(at, 0, cmd, end),
+          `Eklendi: ${at + 1}. ${describe(cmd)} ve ${at + 2}. ${describe(end)}. İçine gelecek komutları bu ikisinin arasına ekleyin.`,
           at,
         );
       } else {
