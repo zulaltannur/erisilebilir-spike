@@ -34,7 +34,9 @@ export class Runner {
     this.finishedByCommand = false;
     this.step = 0;
     this.speed = 50;
-    this.background = []; // commands running "together with the next one"
+    this.background = [];
+    this.portNotes = new Set();
+    this.foreverDepth = 0; // "used the other port" notes already given in this run
     try {
       await this._nodes(tree);
       await this._waitBackground();
@@ -101,17 +103,24 @@ export class Runner {
         return this._command(node);
       case 'repeat': {
         const forever = node.cmd.forever === 'yes';
-        for (let round = 1; forever || round <= node.cmd.times; round++) {
-          this._check();
-          this.onRound(node.index, round, forever ? null : node.cmd.times);
-          await this._nodes(node.body);
-          await this._sleep(0); // let the page breathe in tight loops
+        if (forever) this.foreverDepth += 1;
+        try {
+          for (let round = 1; forever || round <= node.cmd.times; round++) {
+            this._check();
+            this.onRound(node.index, round, forever ? null : node.cmd.times);
+            const t0 = Date.now();
+            await this._nodes(node.body);
+            // Each round takes at least 50 ms, so fast loops do not flood the Hub with messages.
+            await this._sleep(Math.max(0, 50 - (Date.now() - t0)));
+          }
+        } finally {
+          if (forever) this.foreverDepth -= 1;
         }
         return undefined;
       }
       case 'if': {
         const { yes, seen } = this._condition(node.cmd);
-        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : `hayır, sensör şu an ${seen} görüyor`}.`);
+        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : `hayır, sensör şu an ${seen} görüyor`}.`, this.foreverDepth > 0);
         return this._nodes(yes ? node.then : node.otherwise);
       }
       case 'parallel': {
@@ -143,16 +152,21 @@ export class Runner {
     throw new Error('Renk sensörü takılı değil.');
   }
 
+  // Finds the part a command needs. If it is not on the port the command names but is
+  // on the other port (children often swap the plugs), the program uses that port and
+  // says so once. Returns the device; its .port is the port actually used.
   _device(session, port, kind, label) {
     const dev = session.deviceAt(port);
     if (dev && dev.kind === kind) return dev;
     const other = port === 0 ? 1 : 0;
     const there = session.deviceAt(other);
     if (there && there.kind === kind) {
-      throw new Error(
-        `Port ${da(port)} ${label} yok; ${label} şu an Port ${da(other)}. ` +
-          `Komutu düzenleyip portu ${PORT_NAMES[other]} yapın ya da parçayı Port ${PORT_NAMES[port]}'${port === 0 ? 'ya' : 'ye'} takın.`,
-      );
+      const key = `${port}-${kind}`;
+      if (!this.portNotes.has(key)) {
+        this.portNotes.add(key);
+        this.onInfo(-1, `Not: ${label} Port ${da(port)} değil, Port ${da(other)}. Program Port ${PORT_NAMES[other]}'yi kullanıyor.`.replace(`Port A'yi`, `Port A'yı`));
+      }
+      return there;
     }
     throw new Error(`Port ${da(port)} ${label} yok. Önce ${label} takın.`);
   }
@@ -160,7 +174,7 @@ export class Runner {
   async _command(node, { inParallel = false } = {}) {
     const { cmd, index } = node;
     this.step += 1;
-    this.onStep(index, this.step, describe(cmd));
+    this.onStep(index, this.step, describe(cmd), this.foreverDepth > 0);
     await this._exec(cmd);
   }
 
@@ -178,11 +192,11 @@ export class Runner {
     switch (cmd.type) {
       case 'motorRun': {
         const s = this._session();
-        this._device(s, cmd.port, 'motor', 'motor');
-        if (cmd.unit === 'seconds') await s.runForTime(cmd.port, cmd.amount * 1000, dir * this.speed);
+        const { port } = this._device(s, cmd.port, 'motor', 'motor');
+        if (cmd.unit === 'seconds') await s.runForTime(port, cmd.amount * 1000, dir * this.speed);
         else {
           const degrees = cmd.unit === 'rotations' ? cmd.amount * 360 : cmd.amount;
-          await s.runForDegrees(cmd.port, dir * degrees, this.speed);
+          await s.runForDegrees(port, dir * degrees, this.speed);
         }
         return;
       }
@@ -193,19 +207,19 @@ export class Runner {
         let delta = cmd.position - current;
         if (delta > 180) delta -= 360;
         if (delta < -180) delta += 360;
-        if (Math.abs(delta) >= 2) await s.runForDegrees(cmd.port, delta, this.speed);
+        if (Math.abs(delta) >= 2) await s.runForDegrees(dev.port, delta, this.speed);
         return;
       }
       case 'motorStart': {
         const s = this._session();
-        this._device(s, cmd.port, 'motor', 'motor');
-        await s.startSpeed(cmd.port, dir * this.speed);
+        const { port } = this._device(s, cmd.port, 'motor', 'motor');
+        await s.startSpeed(port, dir * this.speed);
         return;
       }
       case 'motorStop': {
         const s = this._session();
-        this._device(s, cmd.port, 'motor', 'motor');
-        await s.brake(cmd.port);
+        const { port } = this._device(s, cmd.port, 'motor', 'motor');
+        await s.brake(port);
         return;
       }
       case 'speed':
@@ -213,11 +227,11 @@ export class Runner {
         return;
       case 'lightOn': {
         const s = this._session();
-        this._device(s, cmd.port, 'matrix3x3', 'ışık matrisi');
+        const { port } = this._device(s, cmd.port, 'matrix3x3', 'ışık matrisi');
         const color = this._lightColor(s, cmd.color);
         const cells = new Set(PATTERNS[cmd.pattern].cells);
         await s.setMatrix(
-          cmd.port,
+          port,
           Array.from({ length: 9 }, (_, i) =>
             cells.has(i) && color > 0 ? { brightness: 10, color } : { brightness: 0, color: 0 },
           ),
@@ -230,13 +244,13 @@ export class Runner {
         const pixels = dev.pixels.map((p) => ({ ...p }));
         const color = this._lightColor(s, cmd.color);
         pixels[cmd.row * 3 + cmd.col] = color > 0 ? { brightness: 10, color } : { brightness: 0, color: 0 };
-        await s.setMatrix(cmd.port, pixels);
+        await s.setMatrix(dev.port, pixels);
         return;
       }
       case 'lightOff': {
         const s = this._session();
-        this._device(s, cmd.port, 'matrix3x3', 'ışık matrisi');
-        await s.setMatrix(cmd.port, Array.from({ length: 9 }, () => ({ brightness: 0, color: 0 })));
+        const { port } = this._device(s, cmd.port, 'matrix3x3', 'ışık matrisi');
+        await s.setMatrix(port, Array.from({ length: 9 }, () => ({ brightness: 0, color: 0 })));
         return;
       }
       case 'hubLight':
@@ -256,11 +270,11 @@ export class Runner {
         return;
       case 'waitColor': {
         const s = this._session();
-        this._device(s, cmd.port, 'color', 'renk sensörü');
+        const { port } = this._device(s, cmd.port, 'color', 'renk sensörü');
         let seen = 0;
         while (seen < 2) {
           this._check();
-          const dev = s.deviceAt(cmd.port);
+          const dev = s.deviceAt(port);
           if (!dev) throw new Error('Renk sensörü çıkarıldı.');
           seen = sensorColor(dev) === cmd.color ? seen + 1 : 0;
           if (seen < 2) await this._sleep(POLL_MS);

@@ -253,7 +253,7 @@ with sync_playwright() as p:
     page.keyboard.press('Escape')
     page.wait_for_timeout(300)
     out = said()[-12:]
-    expect(any('Sonsuz tekrar: 3. tur.' in x for x in said()) and 'Program durduruldu.' in out, 'sonsuz tekrar ve Escape')
+    expect(any('Sonsuz tekrar: 1. tur.' in x for x in said()) and 'Program durduruldu.' in out, 'sonsuz tekrar ve Escape')
 
     out = run_program([{'type': 'sound', 'sound': 'beep'}, {'type': 'stopProgram'}, {'type': 'sound', 'sound': 'siren'}], 1000)
     expect('Program bitti.' in out and page.evaluate('window.__lastSound') == 'beep', 'programı bitir komutu')
@@ -335,14 +335,16 @@ with sync_playwright() as p:
     page.keyboard.press('ArrowDown')
     add('Bilgisayardan ses çal', {'select#alan-sound': 'drop'})
     texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
-    expect(texts[:5] == ['1. Eğer renk sensörü B kırmızı görüyorsa', '2. İçeride: Ses çal: bip', '3. Değilse', '4. İçeride: Ses çal: su damlası', '5. Eğer sonu'],
+    expect(texts[:7] == ['1. Sonsuza kadar tekrarla', '2. İçeride: Eğer renk sensörü B kırmızı görüyorsa', '3. 2 kat içeride: Ses çal: bip', '4. İçeride: Değilse', '5. 2 kat içeride: Ses çal: su damlası', '6. İçeride: Eğer sonu', '7. Tekrar sonu'],
            'eğer/değilse: klavyeyle kuruldu ' + json.dumps(texts, ensure_ascii=False))
     page.evaluate('window.__fake.color = 3')
     page.wait_for_timeout(700)
     start = len(said())
     page.keyboard.press('Control+Enter')
     page.wait_for_timeout(1000)
-    expect(page.evaluate('window.__lastSound') == 'drop' and 'Program bitti.' in said()[start:], 'eğer/değilse: değilse dalı çalıştı')
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
+    expect(page.evaluate('window.__lastSound') == 'drop' and 'Program durduruldu.' in said()[start:], 'eğer/değilse: değilse dalı çalıştı')
 
     # An empty block gives a clear message and moves to the block
     page.click('#program-temizle-btn')
@@ -380,9 +382,6 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     expect(has('Renk ayarı sıfırlandı.'), 'renk ayarı: sıfırlandı')
 
-    # Wrong port: the message says where the part really is
-    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 0, 'color': 9}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 500)
-    expect(any("renk sensörü şu an Port B'de" in x for x in out), 'yanlış port: doğru portu söyledi ' + json.dumps(out, ensure_ascii=False))
     # An "Eğer" outside a repeat: tip after the run
     out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 3}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 800)
     expect(any('İpucu: Eğer bloğu sadece bir kez' in x for x in out), 'eğer bir kez: ipucu verildi')
@@ -395,6 +394,30 @@ with sync_playwright() as p:
     expect(page.input_value('#alan-port') == '1', 'akıllı port: renk sensörünün portu seçili geldi')
     page.keyboard.press('Escape')
     page.wait_for_timeout(100)
+    # Adding "Eğer" on its own wraps it in "Sonsuza kadar tekrarla"; parts on swapped ports are found
+    page.click('#program-temizle-btn')
+    page.focus('#program-liste')
+    add('Eğer (koşul doğruysa yap)')
+    add('Bilgisayardan ses çal')
+    texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
+    expect(texts[:5] == ['1. Sonsuza kadar tekrarla', '2. İçeride: Eğer renk sensörü B kırmızı görüyorsa', '3. 2 kat içeride: Ses çal: bip', '4. İçeride: Eğer sonu', '5. Tekrar sonu'],
+           'eğer: sonsuz tekrarın içine kondu ' + json.dumps(texts, ensure_ascii=False))
+    page.evaluate('window.__fake.color = 3')
+    page.wait_for_timeout(600)
+    start = len(said())
+    page.keyboard.press('Control+Enter')
+    page.wait_for_timeout(800)
+    page.evaluate('window.__fake.color = 9')
+    page.wait_for_timeout(1200)
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
+    out = said()[start:]
+    hayir = sum(1 for x in out if 'görüyorsa: hayır' in x)
+    evet = sum(1 for x in out if 'görüyorsa: evet' in x)
+    expect(hayir == 1 and evet == 1 and 'Program durduruldu.' in out, f'eğer döngüde: sadece değişince söylendi (hayır {hayir}, evet {evet}) ' + json.dumps(out[:12], ensure_ascii=False))
+    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 0, 'color': 9}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 600)
+    expect(any("Program Port B'yi kullanıyor" in x for x in out) and page.evaluate('window.__lastSound') == 'beep', 'yer değişen parça: diğer port kullanıldı ' + json.dumps(out, ensure_ascii=False))
+
     # "koyu mavi" everywhere, never plain "mavi"
     import re as _re
     body = page.inner_text('body')

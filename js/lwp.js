@@ -179,7 +179,12 @@ export class LwpSession {
     // pixels: 9 x { color, brightness 0..10 }
     const bytes = pixels.map((p) => ((p.brightness & 0x0f) << 4) | (p.color & 0x0f));
     const dev = this.ports.get(port);
-    if (dev) dev.pixels = pixels;
+    if (dev) {
+      // Same picture as last time: nothing to send (keeps fast loops light).
+      if (dev.lastBytes && dev.lastBytes.join() === bytes.join()) return Promise.resolve(true);
+      dev.lastBytes = bytes;
+      dev.pixels = pixels;
+    }
     return this._command(port, 0x51, [MATRIX_MODE_PIXELS, ...bytes], { wait: false });
   }
 
@@ -300,10 +305,6 @@ export class LwpSession {
           const b = v.getInt16(p + 5, true);
           dev.hsv = { h, s, v: b };
           dev.color = colorFromHsv(h, s, b);
-          // The sensor flickers for a moment when a brick moves. Programs use the color
-          // seen most often in the last few readings, so a single odd reading is ignored.
-          dev.recent = [...(dev.recent || []), dev.color].slice(-5);
-          dev.stableColor = mostCommon(dev.recent);
         }
         break;
       }
@@ -329,6 +330,14 @@ export class LwpSession {
 
   _emitSnapshot() {
     if (!this.ready) return;
+    // The sensor only reports changes, and flickers for a moment when a brick moves.
+    // Every 200 ms we note the current color; programs use the color seen in at least
+    // two of the last three notes (about 0.4 s), so one odd reading is ignored.
+    for (const dev of this.ports.values()) {
+      if (dev.kind !== 'color') continue;
+      dev.recent = [...(dev.recent || []), dev.color].slice(-3);
+      dev.stableColor = mostCommon(dev.recent);
+    }
     const list = [];
     if (this.battery != null) list.push({ kind: 'battery', level: this.battery });
     for (const dev of this.ports.values()) {

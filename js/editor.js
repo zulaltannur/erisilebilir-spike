@@ -268,6 +268,15 @@ export class Editor {
     return this.active + 1;
   }
 
+  _insideRepeat(at) {
+    let depth = 0;
+    for (let k = 0; k < at; k++) {
+      if (this.program[k].type === 'repeatStart') depth++;
+      if (this.program[k].type === 'repeatEnd') depth--;
+    }
+    return depth > 0;
+  }
+
   _showPicker() {
     this.title.textContent = 'Komut ekle: bir komut seçin';
     this.fields.textContent = '';
@@ -431,7 +440,20 @@ export class Editor {
     const cmd = this._readFields();
     if (mode.kind === 'add') {
       const at = mode.index;
-      if (cmd.type === 'ifElseStart') {
+      if ((cmd.type === 'ifElseStart' || cmd.type === 'ifStart') && !this._insideRepeat(at)) {
+        // An "Eğer" on its own is checked only once, the moment the program reaches it.
+        // Children expect it to keep watching the sensor, so it goes inside "Sonsuza kadar tekrarla".
+        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color };
+        const inner = cmd.type === 'ifElseStart' ? [start, { type: 'else' }, { type: 'ifEnd' }] : [start, { type: 'ifEnd' }];
+        const items = [{ type: 'repeatStart', forever: 'yes', times: 3 }, ...inner, { type: 'repeatEnd' }];
+        this._change(
+          () => this.program.splice(at, 0, ...items),
+          `Eklendi: ${describe(start)}. Sensörü sürekli izlemesi için Sonsuza kadar tekrarla bloğunun içine kondu; ` +
+            'program Escape ile durana kadar çalışır. Seçili satır Eğer. Şimdi A tuşuyla ekleyeceğiniz komutlar koşul doğruysa çalışır.' +
+            (cmd.type === 'ifElseStart' ? ' Değilse satırına gidip A tuşuna basarsanız eklenenler koşul yanlışsa çalışır.' : ''),
+          at + 1,
+        );
+      } else if (cmd.type === 'ifElseStart') {
         const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color };
         const items = [start, { type: 'else' }, { type: 'ifEnd' }];
         this._change(

@@ -391,18 +391,34 @@ function ifCheckedOnlyOnce(program) {
   return false;
 }
 
+// In loops the same step comes back again and again. Say a step only the first time
+// and whenever its result changes (for example "Eğer ...: evet" after "hayır").
+const lastSpoken = new Map();
+function repeatsItself(key, text) {
+  if (lastSpoken.get(key) === text) return true;
+  lastSpoken.set(key, text);
+  return false;
+}
+
 const runner = new Runner({
   getSession: () => hub.lwp,
-  onStep: (index, n, text) => {
+  onStep: (index, n, text, inEndlessLoop) => {
     editor.setRunning(index);
+    if (inEndlessLoop && repeatsItself(`step-${index}`, text)) return;
     say(T.programStep(n, text));
   },
   onRound: (index, round, times) => {
     editor.setRunning(index);
-    say(T.programRound(round, times));
+    // Fast endless loops (for example watching a sensor) would flood the screen reader:
+    // announce only the first round and then every 20th.
+    if (times || round === 1 || round % 20 === 0) say(T.programRound(round, times), { logIt: round === 1 || !!times });
   },
-  onInfo: (index, text) => {
+  onInfo: (index, text, inEndlessLoop) => {
     editor.setRunning(index);
+    // In an endless loop say "Eğer ...: evet / hayır" only when the answer changes.
+    const key = `info-${index}`;
+    const answer = text.replace(/, sensör şu an .* görüyor/, '');
+    if (inEndlessLoop && repeatsItself(key, answer)) return;
     say(text);
   },
   onDone: (completed) => {
@@ -440,6 +456,7 @@ function runProgram() {
     return;
   }
   state.programRunning = true;
+  lastSpoken.clear();
   play('programStart');
   say(T.programStarted);
   runner.run(editor.program);
@@ -743,7 +760,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.11';
+const APP_VERSION = '2026-11-25.12';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {
