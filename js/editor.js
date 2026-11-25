@@ -1,6 +1,6 @@
 // Accessible program editor: a listbox of commands plus an add/edit dialog.
 
-import { COMMAND_TYPES, GROUPS, describe, newCommand, depths, partnerOf, isBlockStart, isBlockEnd, blockEndFor } from './program-model.js';
+import { DEVICE_FOR, COMMAND_TYPES, GROUPS, describe, newCommand, depths, partnerOf, isBlockStart, isBlockEnd, blockEndFor } from './program-model.js';
 
 const STORAGE_KEY = 'erisilebilir-spike-program';
 const ADD_ID = 'komut-ekle-secenek';
@@ -18,7 +18,8 @@ const load = () => {
 };
 
 export class Editor {
-  constructor({ list, dialog, form, fields, title, cancelBtn, say }) {
+  constructor({ list, dialog, form, fields, title, cancelBtn, say, findPort = () => null }) {
+    this.findPort = findPort; // (kind) -> port index where that part is plugged in, or null
     this.list = list;
     this.dialog = dialog;
     this.form = form;
@@ -295,7 +296,11 @@ export class Editor {
 
   _chooseType(type) {
     this.title.textContent = `Komut ekle: ${COMMAND_TYPES[type].name}`;
-    this._renderFields(newCommand(type));
+    const cmd = newCommand(type);
+    // Start with the port where the needed part is plugged in right now.
+    const port = DEVICE_FOR[type] ? this.findPort(DEVICE_FOR[type]) : null;
+    if (port !== null && port !== undefined && 'port' in cmd) cmd.port = port;
+    this._renderFields(cmd);
     this._submitButton().hidden = false;
     const back = document.createElement('button');
     back.type = 'button';

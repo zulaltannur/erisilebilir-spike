@@ -380,6 +380,26 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     expect(has('Renk ayarı sıfırlandı.'), 'renk ayarı: sıfırlandı')
 
+    # Wrong port: the message says where the part really is
+    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 0, 'color': 9}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 500)
+    expect(any("renk sensörü şu an Port B'de" in x for x in out), 'yanlış port: doğru portu söyledi ' + json.dumps(out, ensure_ascii=False))
+    # An "Eğer" outside a repeat: tip after the run
+    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 3}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 800)
+    expect(any('İpucu: Eğer bloğu sadece bir kez' in x for x in out), 'eğer bir kez: ipucu verildi')
+    # Smart default port: the color sensor is on B, so a new "Eğer" uses B
+    page.focus('#program-liste')
+    page.keyboard.press('a')
+    page.wait_for_timeout(100)
+    page.click('#komut-alanlar .komut-secici button:text-is("Eğer (koşul doğruysa yap)")')
+    page.wait_for_timeout(100)
+    expect(page.input_value('#alan-port') == '1', 'akıllı port: renk sensörünün portu seçili geldi')
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(100)
+    # "koyu mavi" everywhere, never plain "mavi"
+    import re as _re
+    body = page.inner_text('body')
+    expect(not _re.search(r'(?<!koyu )(?<!açık )\bmavi\b', body.replace('koyu mavi', '').replace('açık mavi', '')), 'mavi: sayfada hep koyu mavi')
+
     # Examples dialog
     page.click('#ornek-btn')
     page.wait_for_timeout(200)

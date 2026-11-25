@@ -128,10 +128,25 @@ export class Runner {
     return dev.color === cmd.color;
   }
 
+  // A light color, or "what the color sensor sees" (black or nothing = light off).
+  _lightColor(session, color) {
+    if (color !== 'sensor') return color;
+    for (const dev of session.ports.values()) if (dev.kind === 'color') return dev.color > 0 ? dev.color : 0;
+    throw new Error('Renk sensörü takılı değil.');
+  }
+
   _device(session, port, kind, label) {
     const dev = session.deviceAt(port);
-    if (!dev || dev.kind !== kind) throw new Error(`Port ${da(port)} ${label} yok.`);
-    return dev;
+    if (dev && dev.kind === kind) return dev;
+    const other = port === 0 ? 1 : 0;
+    const there = session.deviceAt(other);
+    if (there && there.kind === kind) {
+      throw new Error(
+        `Port ${da(port)} ${label} yok; ${label} şu an Port ${da(other)}. ` +
+          `Komutu düzenleyip portu ${PORT_NAMES[other]} yapın ya da parçayı Port ${PORT_NAMES[port]}'${port === 0 ? 'ya' : 'ye'} takın.`,
+      );
+    }
+    throw new Error(`Port ${da(port)} ${label} yok. Önce ${label} takın.`);
   }
 
   async _command(node, { inParallel = false } = {}) {
@@ -191,10 +206,13 @@ export class Runner {
       case 'lightOn': {
         const s = this._session();
         this._device(s, cmd.port, 'matrix3x3', 'ışık matrisi');
+        const color = this._lightColor(s, cmd.color);
         const cells = new Set(PATTERNS[cmd.pattern].cells);
         await s.setMatrix(
           cmd.port,
-          Array.from({ length: 9 }, (_, i) => (cells.has(i) ? { brightness: 10, color: cmd.color } : { brightness: 0, color: 0 })),
+          Array.from({ length: 9 }, (_, i) =>
+            cells.has(i) && color > 0 ? { brightness: 10, color } : { brightness: 0, color: 0 },
+          ),
         );
         return;
       }
@@ -202,7 +220,8 @@ export class Runner {
         const s = this._session();
         const dev = this._device(s, cmd.port, 'matrix3x3', 'ışık matrisi');
         const pixels = dev.pixels.map((p) => ({ ...p }));
-        pixels[cmd.row * 3 + cmd.col] = { brightness: 10, color: cmd.color };
+        const color = this._lightColor(s, cmd.color);
+        pixels[cmd.row * 3 + cmd.col] = color > 0 ? { brightness: 10, color } : { brightness: 0, color: 0 };
         await s.setMatrix(cmd.port, pixels);
         return;
       }

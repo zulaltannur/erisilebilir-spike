@@ -87,6 +87,8 @@ export const T = {
   motorTurnStep: (p) => `Motor ${p} bir tur dönüyor`,
   nothingRunning: 'Şu an çalışan bir program yok, motorlar da duruyor.',
   motorsStopped: 'Motorlar durduruldu.',
+  ifOnceTip:
+    'İpucu: Eğer bloğu sadece bir kez, program başlar başlamaz kontrol edildi. Sensörün sürekli izlenmesi için Eğer bloğunu Sonsuza kadar tekrarla bloğunun içine koyun. Örnek programlardaki Renk dedektörü buna bir örnek.',
   newVersion:
     'Uygulamanın yeni bir sürümü yayımlandı. Hazır olduğunuzda Ctrl, Shift ve R tuşlarıyla sayfayı yenileyin; Hub bağlantısını sonra yeniden kurun.',
   programDoneSpinning: (ports) =>

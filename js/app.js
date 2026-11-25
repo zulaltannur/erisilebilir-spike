@@ -373,7 +373,23 @@ const editor = new Editor({
   title: $('komut-dialog-baslik'),
   cancelBtn: $('komut-iptal'),
   say,
+  findPort: (kind) => {
+    const i = state.ports.findIndex((d) => d && d.kind === kind);
+    return i >= 0 ? i : null;
+  },
 });
+
+// An "Eğer" that is not inside a repeat is checked only once, at the moment the
+// program reaches it. Children often expect it to keep watching, so we say so.
+function ifCheckedOnlyOnce(program) {
+  let repeatDepth = 0;
+  for (const c of program) {
+    if (c.type === 'repeatStart') repeatDepth++;
+    if (c.type === 'repeatEnd') repeatDepth--;
+    if (c.type === 'ifStart' && repeatDepth === 0) return true;
+  }
+  return false;
+}
 
 const runner = new Runner({
   getSession: () => hub.lwp,
@@ -397,6 +413,7 @@ const runner = new Runner({
       play('programEnd');
       const spinning = hub.lwp ? [...hub.lwp.spinning] : [];
       say(spinning.length ? T.programDoneSpinning(spinning.map((p) => PORT_NAMES[p]).join(' ve ')) : T.programDone);
+      if (ifCheckedOnlyOnce(editor.program)) say(T.ifOnceTip);
     } else {
       say(T.programStopped, { urgent: true });
     }
@@ -726,7 +743,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.9';
+const APP_VERSION = '2026-11-25.10';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

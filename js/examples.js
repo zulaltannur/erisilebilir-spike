@@ -38,6 +38,16 @@ export const EXAMPLES = [
     ],
   },
   {
+    name: 'Renk aynası',
+    about: 'Renk sensörü hangi rengi görürse ışık matrisi o renkte yanar; durdurmak için Escape. Renk sensörü bir porta, ışık matrisi diğer porta.',
+    program: [
+      { type: 'repeatStart', forever: 'yes', times: 3 },
+      { type: 'lightOn', port: 1, pattern: 'all', color: 'sensor' },
+      { type: 'wait', seconds: 0.2 },
+      { type: 'repeatEnd' },
+    ],
+  },
+  {
     name: 'Işık ve müzik birlikte',
     about: 'Aynı anda yap bloğu: motor dönerken notalar çalar. Port A: motor.',
     program: [

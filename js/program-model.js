@@ -30,6 +30,14 @@ export const COLUMNS = { 0: 'sol', 1: 'orta', 2: 'sağ' };
 const portField = { key: 'port', label: 'Port', type: 'choice', options: { 0: 'A', 1: 'B' } };
 const realColors = Object.fromEntries(Object.entries(COLORS).filter(([k]) => k !== '0'));
 const colorField = (label = 'Renk') => ({ key: 'color', label, type: 'choice', options: realColors });
+// For lights: "the color the color sensor sees right now"
+const lightColorField = {
+  key: 'color',
+  label: 'Renk',
+  type: 'choice',
+  options: { ...realColors, sensor: 'renk sensörünün gördüğü renk' },
+};
+const colorText = (c) => (c === 'sensor' ? 'renk sensörünün gördüğü renk' : COLORS[c]);
 const hubColors = { 0: 'kapalı', ...realColors };
 
 // Groups are used to sort the command list when adding a command.
@@ -80,7 +88,7 @@ export const COMMAND_TYPES = {
     fields: [
       portField,
       { key: 'pattern', label: 'Desen', type: 'choice', options: Object.fromEntries(Object.entries(PATTERNS).map(([k, v]) => [k, v.name])) },
-      colorField(),
+      lightColorField,
     ],
     defaults: { port: 1, pattern: 'smile', color: 9 },
   },
@@ -91,7 +99,7 @@ export const COMMAND_TYPES = {
       portField,
       { key: 'row', label: 'Satır', type: 'choice', options: ROWS },
       { key: 'col', label: 'Sütun', type: 'choice', options: COLUMNS },
-      colorField(),
+      lightColorField,
     ],
     defaults: { port: 1, row: 1, col: 1, color: 3 },
   },
@@ -177,6 +185,13 @@ export const COMMAND_TYPES = {
   stopProgram: { group: 'control', name: 'Programı bitir', fields: [], defaults: {} },
 };
 
+// Which part a command needs on its port (used to pick the right port automatically).
+export const DEVICE_FOR = {
+  motorRun: 'motor', motorGoTo: 'motor', motorStart: 'motor', motorStop: 'motor',
+  lightOn: 'matrix3x3', lightPixel: 'matrix3x3', lightOff: 'matrix3x3',
+  waitColor: 'color', ifStart: 'color', ifElseStart: 'color',
+};
+
 const BLOCK_END = { repeatStart: 'repeatEnd', ifStart: 'ifEnd', parallelStart: 'parallelEnd' };
 const END_START = { repeatEnd: 'repeatStart', ifEnd: 'ifStart', parallelEnd: 'parallelStart' };
 export const isBlockStart = (t) => t in BLOCK_END;
@@ -199,9 +214,9 @@ export function describe(cmd) {
     case 'speed':
       return `Motor hızı yüzde ${cmd.percent}`;
     case 'lightOn':
-      return `Işık ${p}: ${PATTERNS[cmd.pattern].name}, ${COLORS[cmd.color]}`;
+      return `Işık ${p}: ${PATTERNS[cmd.pattern].name}, ${colorText(cmd.color)}`;
     case 'lightPixel':
-      return `Işık ${p}: ${ROWS[cmd.row]} satır, ${COLUMNS[cmd.col]} sütun, ${COLORS[cmd.color]}`;
+      return `Işık ${p}: ${ROWS[cmd.row]} satır, ${COLUMNS[cmd.col]} sütun, ${colorText(cmd.color)}`;
     case 'lightOff':
       return `Işık ${p} kapansın`;
     case 'hubLight':
