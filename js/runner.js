@@ -2,7 +2,7 @@
 // so every step can be announced while the robot is doing it.
 // Supports repeat (counted and forever), if/else and "together" blocks.
 
-import { parse, describe, PATTERNS } from './program-model.js';
+import { parse, describe, PATTERNS, repeatMode } from './program-model.js';
 import { PORT_NAMES, COLORS } from './texts.js';
 
 const sensorColor = (dev) => (dev.stableColor !== undefined ? dev.stableColor : dev.color);
@@ -102,11 +102,19 @@ export class Runner {
       case 'cmd':
         return this._command(node);
       case 'repeat': {
-        const forever = node.cmd.forever === 'yes';
+        const mode = repeatMode(node.cmd);
+        const forever = mode !== 'times'; // "forever" and "until a color" have no fixed count
         if (forever) this.foreverDepth += 1;
         try {
           for (let round = 1; forever || round <= node.cmd.times; round++) {
             this._check();
+            if (mode === 'until') {
+              const { yes } = this._condition(node.cmd);
+              if (yes) {
+                this.onInfo(node.index, `${describe(node.cmd)}: renk görüldü, tekrar bitti.`, false);
+                break;
+              }
+            }
             this.onRound(node.index, round, forever ? null : node.cmd.times);
             const t0 = Date.now();
             await this._nodes(node.body);

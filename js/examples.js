@@ -16,7 +16,7 @@ export const EXAMPLES = [
     name: 'İleri geri',
     about: 'Motor bir tur ileri, bir tur geri döner; bunu üç kez yapar. Port A: motor.',
     program: [
-      { type: 'repeatStart', forever: 'no', times: 3 },
+      { type: 'repeatStart', mode: 'times', times: 3 },
       { type: 'motorRun', port: 0, amount: 1, unit: 'rotations', direction: 'cw' },
       { type: 'sound', sound: 'beep' },
       { type: 'motorRun', port: 0, amount: 1, unit: 'rotations', direction: 'ccw' },
@@ -27,7 +27,7 @@ export const EXAMPLES = [
     name: 'Renk dedektörü',
     about: 'Sensör kırmızı görürse siren çalar, görmezse kısa bir bip. Durdurmak için Escape. Port B: renk sensörü.',
     program: [
-      { type: 'repeatStart', forever: 'yes', times: 3 },
+      { type: 'repeatStart', mode: 'forever', times: 3 },
       { type: 'ifStart', condition: 'colorIs', port: 1, color: 9 },
       { type: 'sound', sound: 'siren' },
       { type: 'else' },
@@ -41,7 +41,7 @@ export const EXAMPLES = [
     name: 'Renk aynası',
     about: 'Renk sensörü hangi rengi görürse ışık matrisi o renkte yanar; durdurmak için Escape. Renk sensörü bir porta, ışık matrisi diğer porta.',
     program: [
-      { type: 'repeatStart', forever: 'yes', times: 3 },
+      { type: 'repeatStart', mode: 'forever', times: 3 },
       { type: 'lightOn', port: 1, pattern: 'all', color: 'sensor' },
       { type: 'wait', seconds: 0.2 },
       { type: 'repeatEnd' },

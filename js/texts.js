@@ -90,7 +90,7 @@ export const T = {
   ifWrapped:
     'Eğer bloğu, sensörü sürekli izlemesi için Sonsuza kadar tekrarla bloğunun içine alındı. Program Escape ile durana kadar çalışır. Eski haline dönmek için Ctrl ve Z.',
   ifOnceTip:
-    'İpucu: Eğer bloğu sadece bir kez, program başlar başlamaz kontrol edildi. Sensörün sürekli izlenmesi için Eğer bloğunu Sonsuza kadar tekrarla bloğunun içine koyun. Örnek programlardaki Renk dedektörü buna bir örnek.',
+    'İpucu: Eğer bloğu sadece bir kez kontrol edildi. Sürekli kontrol etmesini isterseniz Eğer bloğunu bir tekrar bloğunun içine koyun: Sonsuza kadar tekrarla, Belli sayıda tekrarla ya da Bir renk görülene kadar tekrarla.',
   newVersion:
     'Uygulamanın yeni bir sürümü yayımlandı. Hazır olduğunuzda Ctrl, Shift ve R tuşlarıyla sayfayı yenileyin; Hub bağlantısını sonra yeniden kurun.',
   programDoneSpinning: (ports) =>

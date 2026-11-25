@@ -37,6 +37,16 @@ const lightColorField = {
   type: 'choice',
   options: { ...realColors, sensor: 'renk sensörünün gördüğü renk' },
 };
+// Asked when adding an "Eğer": keep watching (put it in "Sonsuza kadar tekrarla") or check once.
+// Only used while adding; not stored, and not asked when the Eğer is already inside a loop.
+const whenField = {
+  key: 'when',
+  label: 'Ne zaman kontrol edilsin?',
+  type: 'choice',
+  options: { loop: 'Sürekli kontrol et (Sonsuza kadar tekrarla bloğuna koy)', once: 'Sadece bir kez, program o satıra gelince' },
+  addOnly: true,
+};
+export const repeatMode = (cmd) => cmd.mode || (cmd.forever === 'yes' ? 'forever' : 'times');
 const colorText = (c) => (c === 'sensor' ? 'renk sensörünün gördüğü renk' : COLORS[c]);
 const hubColors = { 0: 'kapalı', ...realColors };
 
@@ -146,15 +156,28 @@ export const COMMAND_TYPES = {
     defaults: { port: 1, color: 9 },
   },
   // ---- Control flow
+  // Three kinds of loop. All are stored as "repeatStart" with a mode; the other two
+  // entries are shortcuts in the command list (alias) with their own settings.
   repeatStart: {
     group: 'control',
-    name: 'Tekrarla',
+    name: 'Belli sayıda tekrarla',
     block: 'repeat',
-    fields: [
-      { key: 'forever', label: 'Ne kadar', type: 'choice', options: { no: 'belli bir sayıda', yes: 'sonsuza kadar' } },
-      { key: 'times', label: 'Kaç kez (sonsuza kadar seçiliyse kullanılmaz)', type: 'number', min: 2, max: 100, step: 1 },
-    ],
-    defaults: { forever: 'no', times: 3 },
+    fields: [{ key: 'times', label: 'Kaç kez', type: 'number', min: 2, max: 100, step: 1 }],
+    defaults: { mode: 'times', times: 3 },
+  },
+  repeatForeverStart: {
+    group: 'control',
+    name: 'Sonsuza kadar tekrarla',
+    alias: 'repeatStart',
+    fields: [],
+    defaults: { mode: 'forever', times: 3 },
+  },
+  repeatUntilStart: {
+    group: 'control',
+    name: 'Bir renk görülene kadar tekrarla',
+    alias: 'repeatStart',
+    fields: [{ ...portField, label: 'Renk sensörünün portu' }, colorField('Bu renk görülünce tekrar bitsin')],
+    defaults: { mode: 'until', times: 3, port: 1, color: 9 },
   },
   repeatEnd: { group: 'control', name: 'Tekrar sonu', fields: [], defaults: {}, hidden: true },
   ifStart: {
@@ -164,6 +187,7 @@ export const COMMAND_TYPES = {
     fields: [
       { ...portField, label: 'Renk sensörünün portu' },
       colorField('Renk sensörü bu rengi görüyorsa'),
+      whenField,
     ],
     defaults: { condition: 'colorIs', port: 1, color: 9 },
   },
@@ -175,6 +199,7 @@ export const COMMAND_TYPES = {
     fields: [
       { ...portField, label: 'Renk sensörünün portu' },
       colorField('Renk sensörü bu rengi görüyorsa'),
+      whenField,
     ],
     defaults: { port: 1, color: 9 },
   },
@@ -189,14 +214,14 @@ export const COMMAND_TYPES = {
 export const DEVICE_FOR = {
   motorRun: 'motor', motorGoTo: 'motor', motorStart: 'motor', motorStop: 'motor',
   lightOn: 'matrix3x3', lightPixel: 'matrix3x3', lightOff: 'matrix3x3',
-  waitColor: 'color', ifStart: 'color', ifElseStart: 'color',
+  waitColor: 'color', ifStart: 'color', ifElseStart: 'color', repeatUntilStart: 'color',
 };
 
 const BLOCK_END = { repeatStart: 'repeatEnd', ifStart: 'ifEnd', parallelStart: 'parallelEnd' };
 const END_START = { repeatEnd: 'repeatStart', ifEnd: 'ifStart', parallelEnd: 'parallelStart' };
 export const isBlockStart = (t) => t in BLOCK_END;
 export const isBlockEnd = (t) => t in END_START;
-export const blockEndFor = (t) => BLOCK_END[t];
+export const blockEndFor = (t) => BLOCK_END[(COMMAND_TYPES[t] && COMMAND_TYPES[t].alias) || t];
 
 const fmt = (n) => String(n).replace('.', ',');
 
@@ -232,7 +257,9 @@ export function describe(cmd) {
     case 'waitColor':
       return `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar bekle`;
     case 'repeatStart':
-      return cmd.forever === 'yes' ? 'Sonsuza kadar tekrarla' : `Tekrarla ${cmd.times} kez`;
+      if (repeatMode(cmd) === 'forever') return 'Sonsuza kadar tekrarla';
+      if (repeatMode(cmd) === 'until') return `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar tekrarla`;
+      return `Tekrarla ${cmd.times} kez`;
     case 'repeatEnd':
       return 'Tekrar sonu';
     case 'ifStart':

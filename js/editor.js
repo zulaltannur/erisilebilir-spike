@@ -1,6 +1,6 @@
 // Accessible program editor: a listbox of commands plus an add/edit dialog.
 
-import { DEVICE_FOR, COMMAND_TYPES, GROUPS, describe, newCommand, depths, partnerOf, isBlockStart, isBlockEnd, blockEndFor } from './program-model.js';
+import { repeatMode, DEVICE_FOR, COMMAND_TYPES, GROUPS, describe, newCommand, depths, partnerOf, isBlockStart, isBlockEnd, blockEndFor } from './program-model.js';
 
 const STORAGE_KEY = 'erisilebilir-spike-program';
 const ADD_ID = 'komut-ekle-secenek';
@@ -284,7 +284,7 @@ export class Editor {
       for (const k of [...starts].reverse()) {
         const end = partnerOf(this.program, k);
         this.program.splice(end + 1, 0, { type: 'repeatEnd' });
-        this.program.splice(k, 0, { type: 'repeatStart', forever: 'yes', times: 3 });
+        this.program.splice(k, 0, { type: 'repeatStart', mode: 'forever', times: 3 });
       }
     });
     return starts.length;
@@ -331,7 +331,9 @@ export class Editor {
     // Start with the port where the needed part is plugged in right now.
     const port = DEVICE_FOR[type] ? this.findPort(DEVICE_FOR[type]) : null;
     if (port !== null && port !== undefined && 'port' in cmd) cmd.port = port;
-    this._renderFields(cmd);
+    // "Ne zaman kontrol edilsin?" only matters for an Eğer that is not already inside a loop.
+    const adding = !this._insideRepeat(this.dialogMode.index);
+    this._renderFields(cmd, type, { adding });
     this._submitButton().hidden = false;
     const back = document.createElement('button');
     back.type = 'button';
@@ -352,31 +354,38 @@ export class Editor {
 
   openEdit(i) {
     const cmd = this.program[i];
-    if (!COMMAND_TYPES[cmd.type].fields.length) {
+    let typeKey = cmd.type;
+    if (cmd.type === 'repeatStart') {
+      typeKey = { times: 'repeatStart', forever: 'repeatForeverStart', until: 'repeatUntilStart' }[repeatMode(cmd)];
+    }
+    if (!COMMAND_TYPES[typeKey].fields.filter((f) => !f.addOnly).length) {
       return this.say(`${describe(cmd)}: bu komutun ayarı yok.`);
     }
     this.dialogMode = { kind: 'edit', index: i };
-    this.title.textContent = `Komutu düzenle: ${COMMAND_TYPES[cmd.type].name}`;
-    this._renderFields(cmd);
+    this.title.textContent = `Komutu düzenle: ${COMMAND_TYPES[typeKey].name}`;
+    this._renderFields(cmd, typeKey);
     this._submitButton().hidden = false;
     this.dialog.showModal();
     const first = this.fields.querySelector('select, input');
     if (first) first.focus();
   }
 
-  _renderFields(cmd) {
+  // typeKey: which entry's settings to show (a loop shortcut like "Sonsuza kadar tekrarla"
+  // shows its own settings although it is stored as "repeatStart").
+  _renderFields(cmd, typeKey = cmd.type, { adding = false } = {}) {
     this.fields.textContent = '';
-    for (const f of COMMAND_TYPES[cmd.type].fields) {
+    const fields = COMMAND_TYPES[typeKey].fields.filter((f) => !f.addOnly || adding);
+    for (const f of fields) {
       if (f.type === 'choice') this._select(`alan-${f.key}`, f.label, f.options, cmd[f.key]);
       else if (f.type === 'text') this._text(`alan-${f.key}`, f.label, f, cmd[f.key]);
       else this._number(`alan-${f.key}`, f.label, f, cmd[f.key]);
     }
-    if (!COMMAND_TYPES[cmd.type].fields.length) {
+    if (!fields.length) {
       const p = document.createElement('p');
-      p.textContent = 'Bu komutun ayarı yok.';
+      p.textContent = 'Bu komutun ayarı yok. Eklemek için Tamam düğmesine basın.';
       this.fields.append(p);
     }
-    this.fields.dataset.type = cmd.type;
+    this.fields.dataset.type = typeKey;
   }
 
   _row(id, label) {
@@ -437,9 +446,12 @@ export class Editor {
 
   _readFields() {
     const type = this.fields.dataset.type;
-    const cmd = { type };
-    for (const f of COMMAND_TYPES[type].fields) {
+    const def = COMMAND_TYPES[type];
+    // A shortcut entry is stored as the real type with its preset values (for example mode: 'forever').
+    const cmd = def.alias ? { ...def.defaults, type: def.alias } : { type };
+    for (const f of def.fields) {
       const el = this.fields.querySelector(`#alan-${f.key}`);
+      if (!el) continue;
       if (f.type === 'text') {
         cmd[f.key] = el.value.trim().slice(0, f.maxLength || 120) || COMMAND_TYPES[type].defaults[f.key];
       } else if (f.type === 'number') {
@@ -462,12 +474,14 @@ export class Editor {
     const cmd = this._readFields();
     if (mode.kind === 'add') {
       const at = mode.index;
-      if ((cmd.type === 'ifElseStart' || cmd.type === 'ifStart') && !this._insideRepeat(at)) {
+      const keepWatching = cmd.when !== 'once';
+      delete cmd.when;
+      if ((cmd.type === 'ifElseStart' || cmd.type === 'ifStart') && keepWatching && !this._insideRepeat(at)) {
         // An "Eğer" on its own is checked only once, the moment the program reaches it.
         // Children expect it to keep watching the sensor, so it goes inside "Sonsuza kadar tekrarla".
         const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color };
         const inner = cmd.type === 'ifElseStart' ? [start, { type: 'else' }, { type: 'ifEnd' }] : [start, { type: 'ifEnd' }];
-        const items = [{ type: 'repeatStart', forever: 'yes', times: 3 }, ...inner, { type: 'repeatEnd' }];
+        const items = [{ type: 'repeatStart', mode: 'forever', times: 3 }, ...inner, { type: 'repeatEnd' }];
         this._change(
           () => this.program.splice(at, 0, ...items),
           `Eklendi: ${describe(start)}. Sensörü sürekli izlemesi için Sonsuza kadar tekrarla bloğunun içine kondu; ` +
@@ -499,6 +513,7 @@ export class Editor {
       }
     } else {
       const i = mode.index;
+      delete cmd.when;
       this._change(() => (this.program[i] = cmd), `Değiştirildi: ${i + 1}. ${describe(cmd)}`, i);
     }
     this.dialog.close();

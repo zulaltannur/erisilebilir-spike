@@ -153,7 +153,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     expect(page.evaluate("document.getElementById('komut-dialog').open"), 'editör: ekleme penceresi açıldı')
     expect(page.evaluate("document.activeElement.textContent") == 'Motoru döndür', 'editör: odak ilk komut düğmesinde')
-    expect(page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length") == 19, 'editör: 19 komut listelendi')
+    expect(page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length") == 21, 'editör: 21 komut listelendi')
     page.add_script_tag(content=AXE)
     axe2 = page.evaluate("axe.run(document, {runOnly: ['wcag2a','wcag2aa','wcag21aa','wcag22aa','best-practice']})")
     v2 = [(v['id'], len(v['nodes'])) for v in axe2['violations']]
@@ -386,12 +386,37 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     expect(has('Renk ayarı sıfırlandı.'), 'renk ayarı: sıfırlandı')
 
-    # A loose "Eğer" (from an older program) is wrapped in a forever loop when run
+    # A loose "Eğer" is allowed (checked once); the tip explains the loop options
     out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 3}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 900)
+    expect('Program bitti.' in out and any('İpucu: Eğer bloğu sadece bir kez' in x for x in out), 'tek Eğer: bir kez çalıştı, ipucu verildi')
+
+    # "Bir renk görülene kadar tekrarla"
+    page.evaluate('window.__fake.color = 3')
+    page.wait_for_timeout(600)
+    out = run_program([{'type': 'repeatStart', 'mode': 'until', 'times': 3, 'port': 1, 'color': 9}, {'type': 'wait', 'seconds': 0.2}, {'type': 'repeatEnd'}], 800)
+    page.evaluate('window.__fake.color = 9')
+    page.wait_for_timeout(1200)
+    out = said()[-8:]
+    expect(any('kırmızı görene kadar tekrarla: renk görüldü, tekrar bitti.' in x for x in out) and 'Program bitti.' in out, 'renk görülene kadar tekrarla ' + json.dumps(out, ensure_ascii=False))
+
+    # Adding "Eğer" with "Sadece bir kez": no loop is added
+    page.click('#program-temizle-btn')
+    page.focus('#program-liste')
+    add('Eğer (koşul doğruysa yap)', {'select#alan-when': 'once'})
     texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
-    expect(any('Sonsuza kadar tekrarla bloğunun içine alındı' in x for x in out) and texts[0] == '1. Sonsuza kadar tekrarla', 'tek Eğer: çalıştırırken sonsuz tekrara alındı')
+    expect(texts[0].startswith('1. Eğer') and len(texts) == 3, 'eğer bir kez: tekrar eklenmedi ' + json.dumps(texts, ensure_ascii=False))
+    # Loop shortcuts in the command list
+    page.click('#program-temizle-btn')
+    page.focus('#program-liste')
+    add('Bir renk görülene kadar tekrarla')
+    texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
+    expect(texts[0] == '1. Renk sensörü B kırmızı görene kadar tekrarla' and texts[1] == '2. Tekrar sonu', 'döngü: renk görülene kadar eklendi ' + json.dumps(texts, ensure_ascii=False))
+    page.keyboard.press('Home')
+    page.keyboard.press('Enter')
+    page.wait_for_timeout(150)
+    expect('Bir renk görülene kadar tekrarla' in page.inner_text('#komut-dialog-baslik') and page.is_visible('#alan-color'), 'döngü: düzenlerken kendi ayarları açıldı')
     page.keyboard.press('Escape')
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(100)
     # Smart default port: the color sensor is on B, so a new "Eğer" uses B
     page.focus('#program-liste')
     page.keyboard.press('a')
@@ -449,7 +474,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     heads = page.evaluate("[...document.querySelectorAll('#komut-alanlar h3')].map(h => h.textContent)")
     count = page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length")
-    expect(len(heads) == 5 and count == 19, f'seçici: 5 grup, {count} komut')
+    expect(len(heads) == 5 and count == 21, f'seçici: 5 grup, {count} komut')
     page.screenshot(path=os.path.join(HERE, 'picker.png'), full_page=True)
     page.keyboard.press('Escape')
 
