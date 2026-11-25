@@ -188,10 +188,13 @@ export class Runner {
         return { value: heads, detail: heads ? 'yazı geldi' : 'tura geldi' };
       }
       case 'hubShaken':
-      case 'hubTapped': {
+      case 'hubTapped':
+      case 'hubPutDown': {
         const s = this._session();
-        const yes = s.recentGesture(cond === 'hubShaken' ? 3 : 1);
-        return { value: yes, detail: yes ? (cond === 'hubShaken' ? 'Hub sallandı' : 'Hub\'a darbe geldi') : 'hareket yok' };
+        const kind = { hubShaken: 'shake', hubTapped: 'tap', hubPutDown: 'bump' }[cond];
+        const yes = s.recentGesture(kind);
+        const words = { shake: 'Hub sallandı', tap: 'Hub\'a vuruldu', bump: 'Hub bir yere konuldu' }[kind];
+        return { value: yes, detail: yes ? words : 'hareket yok' };
       }
       case 'hubTilted':
       case 'hubForward':

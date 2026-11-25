@@ -30,6 +30,9 @@ const RGB_LIGHT = 0x17; // the Hub's own status light (internal port)
 const TILT_PORT = 0x63;
 const GESTURE_PORT = 0x5f;
 const GESTURE_MEMORY_MS = 700; // a tap or shake counts for this long
+const TAP_STILL_MS = 800;
+const TAP_AFTER_MS = 300;
+const TAP_MAX_MOVE_DEG = 10;
 
 // Device type ids -> our device kinds
 const MOTOR_TYPES = new Set([0x26, 0x2e, 0x2f, 0x30, 0x31, 0x41, 0x4b, 0x4c]);
@@ -79,7 +82,8 @@ export class LwpSession {
     this.battery = null;
     this.rgbPort = null;
     this.tilt = null; // { pitch, roll } in degrees, when the Hub reports it
-    this.gesture = null; // last tap or shake
+    this.gesture = null; // last tap, bump or shake
+    this.tiltHistory = []; // recent tilt readings, to tell a tap from being put down
     this.ports = new Map(); // port -> { kind, type, ...values }
     this.pending = new Map(); // port -> { resolve, timer, sawProgress }
     this.spinning = new Set();
@@ -204,9 +208,23 @@ export class LwpSession {
     return this._command(this.rgbPort, 0x51, [0x00, color], { wait: false });
   }
 
-  // True if the Hub reported this gesture (1 = tap, 3 = shake) a moment ago.
-  recentGesture(code) {
-    return !!(this.gesture && this.gesture.code === code && Date.now() - this.gesture.at < GESTURE_MEMORY_MS);
+  // The Hub sends the same signal (1) for a tap and for being put down on a table.
+  // Measured on a real Hub: when it is put down, it was tilting a lot just before;
+  // a tap comes while the Hub is resting. So: still for the last 0.8 s = tap.
+  // Looks at the tilt from 0.8 s before the signal until a moment after it.
+  _tapOrBump(at) {
+    const around = this.tiltHistory.filter((x) => x.at >= at - TAP_STILL_MS && x.at <= at + TAP_AFTER_MS);
+    if (around.length < 2) return 'tap';
+    let moved = 0;
+    for (const a of around) {
+      for (const b of around) moved = Math.max(moved, Math.abs(a.pitch - b.pitch) + Math.abs(a.roll - b.roll));
+    }
+    return moved < TAP_MAX_MOVE_DEG ? 'tap' : 'bump';
+  }
+
+  // True if the Hub reported this gesture a moment ago: 'tap', 'bump' or 'shake'.
+  recentGesture(kind) {
+    return !!(this.gesture && this.gesture.kind === kind && Date.now() - this.gesture.at < GESTURE_MEMORY_MS);
   }
 
   deviceAt(port) {
@@ -305,10 +323,21 @@ export class LwpSession {
         const port = m[p];
         if (port === TILT_PORT && m.length >= p + 7) {
           this.tilt = { pitch: v.getInt16(p + 3, true) / 10, roll: v.getInt16(p + 5, true) / 10 };
+          const now = Date.now();
+          this.tiltHistory = [...this.tiltHistory.filter((x) => now - x.at < 1500), { ...this.tilt, at: now }];
           break;
         }
         if (port === GESTURE_PORT) {
-          if (m[p + 1]) this.gesture = { code: m[p + 1], at: Date.now() };
+          const code = m[p + 1];
+          if (code === 3) this.gesture = { code, kind: 'shake', at: Date.now() };
+          else if (code) {
+            // Decide a moment later: lifting the Hub can send this signal just before it tilts.
+            const at = Date.now();
+            setTimeout(() => {
+              this.gesture = { code, kind: this._tapOrBump(at), at };
+              this._emitSnapshot();
+            }, TAP_AFTER_MS);
+          }
           break;
         }
         const dev = this.ports.get(port);

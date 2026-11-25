@@ -278,13 +278,14 @@ hub.addEventListener('devices', (e) => {
   }
 
   // While exploring: say how the Hub is held when that changes (after it has been held
-  // still for a moment), and when it is shaken. A bump (code 1) also happens when the
-  // Hub is simply put down, so it is not announced.
+  // still for a moment), when it is shaken and when it is tapped. Being put down is not
+  // announced: the new posture ("Hub düz duruyor") already tells it.
   if (!state.programRunning && hub.lwp) {
     const g = hub.lwp.gesture;
     if (g && g.at !== state.lastGestureAt) {
       state.lastGestureAt = g.at;
-      if (g.code === 3) say('Hub sallandı.');
+      if (g.kind === 'shake') say('Hub sallandı.');
+      if (g.kind === 'tap') say('Hub\'a vuruldu.');
     }
     const t = hub.lwp.tilt;
     if (t) {
@@ -789,7 +790,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.21';
+const APP_VERSION = '2026-11-25.22';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {
