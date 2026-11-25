@@ -13,8 +13,8 @@ SPIKE Essential robotik setiyle uyumlu, **ekran okuyucu öncelikli** bir web uyg
   - Işık: matriste desen, tek kare, matrisi kapat, Hub ışığı
   - Ses: bilgisayardan ses (bip, zil, davul, alkış, siren ve diğerleri), nota çal, bilgisayar konuşsun
   - Bekleme: süre kadar bekle, renk görene kadar bekle
-  - Akış: belli sayıda, sonsuza kadar ya da koşula göre tekrarla; eğer, eğer / aksi halde; aynı anda yap; programı bitir
-  - Koşullar (Eğer, Koşula göre tekrarla, Koşula göre bekle): renk sensörü bir rengi görüyor, önünde bir şey var, motor dönüyor, motorun konumu bir değerden büyük, program başlayalı belli bir süre geçti, yazı tura, Hub eğik (herhangi bir yöne, öne, arkaya, sola, sağa, yana), Hub ters çevrilmiş, Hub sallandı (herhangi bir yöne, öne-arkaya, sağa-sola), Hub'a parmakla vuruldu, Hub bir yere konuldu. Her koşul "doğruysa" ya da "doğru değilse" olarak kullanılabilir.
+  - Akış: belli sayıda, sonsuza kadar ya da koşula göre tekrarla; eğer (her zaman iki kısımlı: koşul doğruysa ve değilse); aynı anda yap; programı bitir
+  - Koşullar (Eğer, Koşula göre tekrarla, Koşula göre bekle): renk sensörü bir rengi görüyor, önünde bir şey var, motor dönüyor, motorun konumu bir değerden büyük, program başlayalı belli bir süre geçti, yazı tura, Hub eğik (herhangi bir yöne, öne, arkaya, sola, sağa, yana), Hub ters çevrilmiş, Hub sallandı (herhangi bir yöne, öne-arkaya, sağa-sola), Hub'a parmakla vuruldu, Hub bir yere konuldu. Eğer, koşul doğruysa ilk kısmı, değilse Değilse kısmını çalıştırır; bekle ve tekrarla komutlarında "olana kadar" ya da "olduğu sürece" seçilebilir.
 
   Program tarayıcıda kaydedilir, dosyaya kaydedilip dosyadan açılabilir. Hazır örnek programlar var. Essential Hub'ında adım adım çalışır; her adım, her tekrar turu ve her koşulun sonucu duyurulur.
 - **Motor denemesi:** Seçilen porttaki motoru bir tur döndürür. Programın her adımı çalışırken bildirilir.

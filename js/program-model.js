@@ -76,14 +76,14 @@ export const CONDITION_DEVICE = { colorSees: 'color', colorAny: 'color', motorTu
 export const condOf = (cmd) => cmd.cond || 'colorSees';
 export const negated = (cmd) => (cmd.negate ? cmd.negate === 'yes' : cmd.sees === 'no');
 
-const conditionFields = (negateLabel, positive, negative) => [
+const conditionFields = (negateLabel, positive, negative, { withNegate = true } = {}) => [
   { key: 'cond', label: 'Koşul', type: 'choice', options: CONDITIONS },
   { ...portField, showIf: ['colorSees', 'colorAny', 'motorTurning', 'motorAngle'] },
   { ...colorField('Hangi renk'), showIf: ['colorSees'] },
   { key: 'angle', label: 'Kaç dereceden büyük (0 ile 359 arası)', type: 'number', min: 0, max: 359, step: 1, showIf: ['motorAngle'] },
   { key: 'seconds', label: 'Kaç saniye', type: 'number', min: 0.1, max: 600, step: 0.1, showIf: ['timer'] },
   { key: 'holdNote', type: 'note', text: HOLD_TEXT, showIf: ['hubForward', 'hubBackward', 'hubLeft', 'hubRight', 'hubSide', 'hubTilted', 'hubShakenFB', 'hubShakenLR'] },
-  { key: 'negate', label: negateLabel, type: 'choice', options: { no: positive, yes: negative } },
+  ...(withNegate ? [{ key: 'negate', label: negateLabel, type: 'choice', options: { no: positive, yes: negative } }] : []),
 ];
 const conditionDefaults = { cond: 'colorSees', port: 1, color: 9, angle: 90, seconds: 5, negate: 'no' };
 
@@ -267,22 +267,25 @@ export const COMMAND_TYPES = {
     defaults: { mode: 'until', times: 3, ...conditionDefaults },
   },
   repeatEnd: { group: 'control', name: 'Tekrar sonu', fields: [], defaults: {}, hidden: true },
+  // "Eğer" always comes with two parts: what to do if the condition is true, and
+  // "Değilse": what to do if it is not. Either part may stay empty.
   ifStart: {
     group: 'control',
     name: 'Eğer',
     block: 'if',
-    fields: [...conditionFields('Ne zaman çalışsın?', 'koşul doğruysa', 'koşul doğru değilse'), whenField],
+    fields: [...conditionFields('', '', '', { withNegate: false }), whenField],
     defaults: { ...conditionDefaults },
   },
-  // Adds "Eğer", "Aksi halde" and "Eğer sonu" together; never stored as its own command.
+  // Older name of the same thing; kept so saved programs still open.
   ifElseStart: {
     group: 'control',
-    name: 'Eğer / aksi halde',
+    name: 'Eğer',
     block: 'ifelse',
-    fields: [...conditionFields('İlk kısım ne zaman çalışsın?', 'koşul doğruysa', 'koşul doğru değilse'), whenField],
+    hidden: true,
+    fields: [...conditionFields('', '', '', { withNegate: false }), whenField],
     defaults: { ...conditionDefaults },
   },
-  else: { group: 'control', name: 'Aksi halde', fields: [], defaults: {}, hidden: true },
+  else: { group: 'control', name: 'Değilse', fields: [], defaults: {}, hidden: true },
   ifEnd: { group: 'control', name: 'Eğer sonu', fields: [], defaults: {}, hidden: true },
   parallelStart: { group: 'control', name: 'Aynı anda yap', block: 'parallel', fields: [], defaults: {} },
   parallelEnd: { group: 'control', name: 'Aynı anda sonu', fields: [], defaults: {}, hidden: true },
@@ -350,7 +353,7 @@ export function describe(cmd) {
     case 'ifStart':
       return `Eğer şu ${negated(cmd) ? 'doğru değilse' : 'doğruysa'}: ${conditionText(cmd)}`;
     case 'else':
-      return 'Aksi halde';
+      return 'Değilse';
     case 'ifEnd':
       return 'Eğer sonu';
     case 'parallelStart':
@@ -434,7 +437,7 @@ export function parse(program) {
       const cmd = program[i];
       if (endTypes.includes(cmd.type)) return nodes;
       if (isBlockEnd(cmd.type)) fail(i, `${n(i)}: ${describe(cmd)} için bir başlangıç yok.`);
-      if (cmd.type === 'else') fail(i, `${n(i)}: Aksi halde, sadece bir Eğer bloğunun içinde kullanılabilir.`);
+      if (cmd.type === 'else') fail(i, `${n(i)}: Değilse, sadece bir Eğer bloğunun içinde kullanılabilir.`);
       if (cmd.type === 'repeatStart') {
         const start = i++;
         const body = parseUntil(['repeatEnd']);
