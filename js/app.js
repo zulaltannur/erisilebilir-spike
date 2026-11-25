@@ -448,6 +448,8 @@ function runProgram() {
   if (hub.protocol !== 'lwp') return say(T.programNeedsEssential, { urgent: true });
   if (runner.running) return;
   if (!editor.program.length) return say(T.programEmpty, { urgent: true });
+  // "Eğer" must keep watching the sensor: wrap loose ones in "Sonsuza kadar tekrarla".
+  if (editor.wrapLooseIfs()) say(T.ifWrapped);
   const problem = validate(editor.program);
   if (problem) {
     say(problem.message, { urgent: true });
@@ -760,7 +762,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.12';
+const APP_VERSION = '2026-11-25.13';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

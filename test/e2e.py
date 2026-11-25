@@ -243,11 +243,15 @@ with sync_playwright() as p:
     out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9}, {'type': 'sound', 'sound': 'beep'},
                        {'type': 'else'}, {'type': 'sound', 'sound': 'drop'}, {'type': 'ifEnd'}], 1000)
     expect('Eğer renk sensörü B kırmızı görüyorsa: evet.' in out and page.evaluate('window.__lastSound') == 'beep', 'eğer: evet dalı')
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
     page.evaluate('window.__fake.color = 3')
     page.wait_for_timeout(700)
     out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9}, {'type': 'sound', 'sound': 'beep'},
                        {'type': 'else'}, {'type': 'sound', 'sound': 'drop'}, {'type': 'ifEnd'}], 1000)
-    expect(any('Eğer renk sensörü B kırmızı görüyorsa: hayır, sensör şu an koyu mavi görüyor.' in x for x in out) and page.evaluate('window.__lastSound') == 'drop', 'eğer: değilse dalı')
+    expect(any('Eğer renk sensörü B kırmızı görüyorsa: hayır, sensör şu an koyu mavi görüyor.' in x for x in out) and page.evaluate('window.__lastSound') == 'drop', 'eğer: değilse dalı ' + json.dumps(out, ensure_ascii=False))
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
 
     out = run_program([{'type': 'repeatStart', 'forever': 'yes', 'times': 3}, {'type': 'wait', 'seconds': 0.3}, {'type': 'repeatEnd'}], 1100)
     page.keyboard.press('Escape')
@@ -382,9 +386,12 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     expect(has('Renk ayarı sıfırlandı.'), 'renk ayarı: sıfırlandı')
 
-    # An "Eğer" outside a repeat: tip after the run
-    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 3}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 800)
-    expect(any('İpucu: Eğer bloğu sadece bir kez' in x for x in out), 'eğer bir kez: ipucu verildi')
+    # A loose "Eğer" (from an older program) is wrapped in a forever loop when run
+    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 3}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 900)
+    texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
+    expect(any('Sonsuza kadar tekrarla bloğunun içine alındı' in x for x in out) and texts[0] == '1. Sonsuza kadar tekrarla', 'tek Eğer: çalıştırırken sonsuz tekrara alındı')
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
     # Smart default port: the color sensor is on B, so a new "Eğer" uses B
     page.focus('#program-liste')
     page.keyboard.press('a')
@@ -415,7 +422,7 @@ with sync_playwright() as p:
     hayir = sum(1 for x in out if 'görüyorsa: hayır' in x)
     evet = sum(1 for x in out if 'görüyorsa: evet' in x)
     expect(hayir == 1 and evet == 1 and 'Program durduruldu.' in out, f'eğer döngüde: sadece değişince söylendi (hayır {hayir}, evet {evet}) ' + json.dumps(out[:12], ensure_ascii=False))
-    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 0, 'color': 9}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 600)
+    out = run_program([{'type': 'repeatStart', 'forever': 'no', 'times': 2}, {'type': 'ifStart', 'condition': 'colorIs', 'port': 0, 'color': 9}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}, {'type': 'repeatEnd'}], 1500)
     expect(any("Program Port B'yi kullanıyor" in x for x in out) and page.evaluate('window.__lastSound') == 'beep', 'yer değişen parça: diğer port kullanıldı ' + json.dumps(out, ensure_ascii=False))
 
     # "koyu mavi" everywhere, never plain "mavi"

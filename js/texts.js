@@ -87,6 +87,8 @@ export const T = {
   motorTurnStep: (p) => `Motor ${p} bir tur dönüyor`,
   nothingRunning: 'Şu an çalışan bir program yok, motorlar da duruyor.',
   motorsStopped: 'Motorlar durduruldu.',
+  ifWrapped:
+    'Eğer bloğu, sensörü sürekli izlemesi için Sonsuza kadar tekrarla bloğunun içine alındı. Program Escape ile durana kadar çalışır. Eski haline dönmek için Ctrl ve Z.',
   ifOnceTip:
     'İpucu: Eğer bloğu sadece bir kez, program başlar başlamaz kontrol edildi. Sensörün sürekli izlenmesi için Eğer bloğunu Sonsuza kadar tekrarla bloğunun içine koyun. Örnek programlardaki Renk dedektörü buna bir örnek.',
   newVersion:

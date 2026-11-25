@@ -268,6 +268,28 @@ export class Editor {
     return this.active + 1;
   }
 
+  // Puts every "Eğer" block that is not inside a repeat into "Sonsuza kadar tekrarla",
+  // so the sensor keeps being watched. Returns how many blocks were wrapped (undo with Ctrl+Z).
+  wrapLooseIfs() {
+    const starts = [];
+    let depth = 0;
+    this.program.forEach((c, k) => {
+      if (c.type === 'repeatStart') depth++;
+      if (c.type === 'repeatEnd') depth--;
+      if (c.type === 'ifStart' && depth === 0) starts.push(k);
+    });
+    if (!starts.length) return 0;
+    this._change(() => {
+      // from the last to the first, so earlier indexes stay valid
+      for (const k of [...starts].reverse()) {
+        const end = partnerOf(this.program, k);
+        this.program.splice(end + 1, 0, { type: 'repeatEnd' });
+        this.program.splice(k, 0, { type: 'repeatStart', forever: 'yes', times: 3 });
+      }
+    });
+    return starts.length;
+  }
+
   _insideRepeat(at) {
     let depth = 0;
     for (let k = 0; k < at; k++) {
