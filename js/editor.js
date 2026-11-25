@@ -1,6 +1,6 @@
 // Accessible program editor: a listbox of commands plus an add/edit dialog.
 
-import { repeatMode, DEVICE_FOR, COMMAND_TYPES, GROUPS, describe, newCommand, depths, partnerOf, isBlockStart, isBlockEnd, blockEndFor } from './program-model.js';
+import { CONDITION_DEVICE, repeatMode, DEVICE_FOR, COMMAND_TYPES, GROUPS, describe, newCommand, depths, partnerOf, isBlockStart, isBlockEnd, blockEndFor } from './program-model.js';
 
 const STORAGE_KEY = 'erisilebilir-spike-program';
 const ADD_ID = 'komut-ekle-secenek';
@@ -380,12 +380,37 @@ export class Editor {
       else if (f.type === 'text') this._text(`alan-${f.key}`, f.label, f, cmd[f.key]);
       else this._number(`alan-${f.key}`, f.label, f, cmd[f.key]);
     }
+    this.fields.dataset.type = typeKey;
+    this._applyShowIf();
+    const condSelect = this.fields.querySelector('#alan-cond');
+    if (condSelect) {
+      condSelect.addEventListener('change', () => {
+        this._applyShowIf();
+        // Pick the port where the part this condition needs is plugged in.
+        const kind = CONDITION_DEVICE[condSelect.value];
+        const port = kind ? this.findPort(kind) : null;
+        const portSelect = this.fields.querySelector('#alan-port');
+        if (portSelect && port !== null && port !== undefined) portSelect.value = String(port);
+      });
+    }
     if (!fields.length) {
       const p = document.createElement('p');
       p.textContent = 'Bu komutun ayarı yok. Eklemek için Tamam düğmesine basın.';
       this.fields.append(p);
     }
     this.fields.dataset.type = typeKey;
+  }
+
+  // Settings that only matter for some conditions are hidden for the others
+  // (hidden rows are skipped by screen readers too).
+  _applyShowIf() {
+    const typeKey = this.fields.dataset.type;
+    const cond = this.fields.querySelector('#alan-cond');
+    for (const f of COMMAND_TYPES[typeKey] ? COMMAND_TYPES[typeKey].fields : []) {
+      if (!f.showIf) continue;
+      const el = this.fields.querySelector(`#alan-${f.key}`);
+      if (el) el.closest('.alan').hidden = !(cond && f.showIf.includes(cond.value));
+    }
   }
 
   _row(id, label) {
@@ -479,7 +504,7 @@ export class Editor {
       if ((cmd.type === 'ifElseStart' || cmd.type === 'ifStart') && keepWatching && !this._insideRepeat(at)) {
         // An "Eğer" on its own is checked only once, the moment the program reaches it.
         // Children expect it to keep watching the sensor, so it goes inside "Sonsuza kadar tekrarla".
-        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color, sees: cmd.sees || 'yes' };
+        const start = { ...cmd, type: 'ifStart' };
         const inner = cmd.type === 'ifElseStart' ? [start, { type: 'else' }, { type: 'ifEnd' }] : [start, { type: 'ifEnd' }];
         const items = [{ type: 'repeatStart', mode: 'forever', times: 3 }, ...inner, { type: 'repeatEnd' }];
         this._change(
@@ -490,7 +515,7 @@ export class Editor {
           at + 1,
         );
       } else if (cmd.type === 'ifElseStart') {
-        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color, sees: cmd.sees || 'yes' };
+        const start = { ...cmd, type: 'ifStart' };
         const items = [start, { type: 'else' }, { type: 'ifEnd' }];
         this._change(
           () => this.program.splice(at, 0, ...items),

@@ -13,7 +13,8 @@ SPIKE Essential robotik setiyle uyumlu, **ekran okuyucu öncelikli** bir web uyg
   - Işık: matriste desen, tek kare, matrisi kapat, Hub ışığı
   - Ses: bilgisayardan ses (bip, zil, davul, alkış, siren ve diğerleri), nota çal, bilgisayar konuşsun
   - Bekleme: süre kadar bekle, renk görene kadar bekle
-  - Akış: belli sayıda, sonsuza kadar ya da renge göre tekrarla; eğer (görüyorsa / görmüyorsa), eğer / aksi halde; aynı anda yap; programı bitir
+  - Akış: belli sayıda, sonsuza kadar ya da koşula göre tekrarla; eğer, eğer / aksi halde; aynı anda yap; programı bitir
+  - Koşullar (Eğer, Koşula göre tekrarla, Koşula göre bekle): renk sensörü bir rengi görüyor, önünde bir şey var, motor dönüyor, motorun konumu bir değerden büyük, program başlayalı belli bir süre geçti, yazı tura. Her koşul "doğruysa" ya da "doğru değilse" olarak kullanılabilir.
 
   Program tarayıcıda kaydedilir, dosyaya kaydedilip dosyadan açılabilir. Hazır örnek programlar var. Essential Hub'ında adım adım çalışır; her adım, her tekrar turu ve her koşulun sonucu duyurulur.
 - **Motor denemesi:** Seçilen porttaki motoru bir tur döndürür. Programın her adımı çalışırken bildirilir.

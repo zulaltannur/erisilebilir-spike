@@ -46,10 +46,54 @@ const whenField = {
   options: { loop: 'Sürekli kontrol et (Sonsuza kadar tekrarla bloğuna koy)', once: 'Sadece bir kez, program o satıra gelince' },
   addOnly: true,
 };
-// "sees" turns a color condition around: 'yes' = the sensor sees the color,
-// 'no' = it does not (for example "if it does not see red, do X").
-const seesField = (label, yes, no) => ({ key: 'sees', label, type: 'choice', options: { yes, no } });
-const seesNot = (cmd) => cmd.sees === 'no';
+// ---- Conditions (used by Eğer, Koşula göre tekrarla, Koşula göre bekle) ----
+// Every condition can be turned around ("doğru değilse"), whatever it is about.
+export const CONDITIONS = {
+  colorSees: 'Renk sensörü bir rengi görüyor',
+  colorAny: 'Renk sensörünün önünde bir şey var',
+  motorTurning: 'Motor dönüyor',
+  motorAngle: 'Motorun konumu bir değerden büyük',
+  timer: 'Program başlayalı belli bir süre geçti',
+  random: 'Yazı tura: rastgele, yarı yarıya',
+};
+// Which part a condition needs (null = none)
+export const CONDITION_DEVICE = { colorSees: 'color', colorAny: 'color', motorTurning: 'motor', motorAngle: 'motor', timer: null, random: null };
+// Older programs stored only color conditions ("sees": 'yes' | 'no').
+export const condOf = (cmd) => cmd.cond || 'colorSees';
+export const negated = (cmd) => (cmd.negate ? cmd.negate === 'yes' : cmd.sees === 'no');
+
+const conditionFields = (negateLabel, positive, negative) => [
+  { key: 'cond', label: 'Koşul', type: 'choice', options: CONDITIONS },
+  { ...portField, showIf: ['colorSees', 'colorAny', 'motorTurning', 'motorAngle'] },
+  { ...colorField('Hangi renk'), showIf: ['colorSees'] },
+  { key: 'angle', label: 'Kaç dereceden büyük (0 ile 359 arası)', type: 'number', min: 0, max: 359, step: 1, showIf: ['motorAngle'] },
+  { key: 'seconds', label: 'Kaç saniye', type: 'number', min: 0.1, max: 600, step: 0.1, showIf: ['timer'] },
+  { key: 'negate', label: negateLabel, type: 'choice', options: { no: positive, yes: negative } },
+];
+const conditionDefaults = { cond: 'colorSees', port: 1, color: 9, angle: 90, seconds: 5, negate: 'no' };
+
+// The condition in words, e.g. "renk sensörü B kırmızı görüyor".
+export function conditionText(cmd) {
+  const p = PORT_NAMES[cmd.port];
+  switch (condOf(cmd)) {
+    case 'colorSees':
+      return `renk sensörü ${p} ${COLORS[cmd.color]} görüyor`;
+    case 'colorAny':
+      return `renk sensörü ${p} önünde bir şey var`;
+    case 'motorTurning':
+      return `motor ${p} dönüyor`;
+    case 'motorAngle':
+      return `motor ${p} konumu ${cmd.angle} dereceden büyük`;
+    case 'timer':
+      return `program başlayalı ${fmtNum(cmd.seconds)} saniye geçti`;
+    case 'random':
+      return 'yazı tura yazı geldi';
+    default:
+      return condOf(cmd);
+  }
+}
+const fmtNum = (x) => String(x).replace('.', ',');
+
 export const repeatMode = (cmd) => cmd.mode || (cmd.forever === 'yes' ? 'forever' : 'times');
 const colorText = (c) => (c === 'sensor' ? 'renk sensörünün gördüğü renk' : COLORS[c]);
 const hubColors = { 0: 'kapalı', ...realColors };
@@ -155,13 +199,9 @@ export const COMMAND_TYPES = {
   },
   waitColor: {
     group: 'wait',
-    name: 'Renge göre bekle',
-    fields: [
-      portField,
-      colorField('Hangi renk'),
-      seesField('Ne zamana kadar beklesin?', 'bu rengi görene kadar', 'bu rengi artık görmeyene kadar'),
-    ],
-    defaults: { port: 1, color: 9, sees: 'yes' },
+    name: 'Koşula göre bekle',
+    fields: conditionFields('Ne zamana kadar beklesin?', 'koşul doğru olana kadar', 'koşul artık doğru olmayana kadar'),
+    defaults: { ...conditionDefaults },
   },
   // ---- Control flow
   // Three kinds of loop. All are stored as "repeatStart" with a mode; the other two
@@ -182,40 +222,26 @@ export const COMMAND_TYPES = {
   },
   repeatUntilStart: {
     group: 'control',
-    name: 'Renge göre tekrarla',
+    name: 'Koşula göre tekrarla',
     alias: 'repeatStart',
-    fields: [
-      { ...portField, label: 'Renk sensörünün portu' },
-      colorField('Hangi renk'),
-      seesField('Ne zamana kadar tekrarlasın?', 'bu renk görülene kadar', 'bu renk görüldüğü sürece'),
-    ],
-    defaults: { mode: 'until', times: 3, port: 1, color: 9, sees: 'yes' },
+    fields: conditionFields('Ne zamana kadar tekrarlasın?', 'koşul doğru olana kadar', 'koşul doğru olduğu sürece'),
+    defaults: { mode: 'until', times: 3, ...conditionDefaults },
   },
   repeatEnd: { group: 'control', name: 'Tekrar sonu', fields: [], defaults: {}, hidden: true },
   ifStart: {
     group: 'control',
-    name: 'Eğer (koşul doğruysa yap)',
+    name: 'Eğer',
     block: 'if',
-    fields: [
-      { ...portField, label: 'Renk sensörünün portu' },
-      colorField('Hangi renk'),
-      seesField('Koşul', 'renk sensörü bu rengi görüyorsa', 'renk sensörü bu rengi görmüyorsa'),
-      whenField,
-    ],
-    defaults: { condition: 'colorIs', port: 1, color: 9, sees: 'yes' },
+    fields: [...conditionFields('Ne zaman çalışsın?', 'koşul doğruysa', 'koşul doğru değilse'), whenField],
+    defaults: { ...conditionDefaults },
   },
   // Adds "Eğer", "Aksi halde" and "Eğer sonu" together; never stored as its own command.
   ifElseStart: {
     group: 'control',
     name: 'Eğer / aksi halde',
     block: 'ifelse',
-    fields: [
-      { ...portField, label: 'Renk sensörünün portu' },
-      colorField('Hangi renk'),
-      seesField('Koşul', 'renk sensörü bu rengi görüyorsa', 'renk sensörü bu rengi görmüyorsa'),
-      whenField,
-    ],
-    defaults: { port: 1, color: 9, sees: 'yes' },
+    fields: [...conditionFields('İlk kısım ne zaman çalışsın?', 'koşul doğruysa', 'koşul doğru değilse'), whenField],
+    defaults: { ...conditionDefaults },
   },
   else: { group: 'control', name: 'Aksi halde', fields: [], defaults: {}, hidden: true },
   ifEnd: { group: 'control', name: 'Eğer sonu', fields: [], defaults: {}, hidden: true },
@@ -228,7 +254,7 @@ export const COMMAND_TYPES = {
 export const DEVICE_FOR = {
   motorRun: 'motor', motorGoTo: 'motor', motorStart: 'motor', motorStop: 'motor',
   lightOn: 'matrix3x3', lightPixel: 'matrix3x3', lightOff: 'matrix3x3',
-  waitColor: 'color', ifStart: 'color', ifElseStart: 'color', repeatUntilStart: 'color',
+  waitColor: 'color', ifStart: 'color', ifElseStart: 'color', repeatUntilStart: 'color', // default condition
 };
 
 const BLOCK_END = { repeatStart: 'repeatEnd', ifStart: 'ifEnd', parallelStart: 'parallelEnd' };
@@ -269,21 +295,21 @@ export function describe(cmd) {
     case 'wait':
       return `${fmt(cmd.seconds)} saniye bekle`;
     case 'waitColor':
-      return seesNot(cmd)
-        ? `Renk sensörü ${p} artık ${COLORS[cmd.color]} görmeyene kadar bekle`
-        : `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar bekle`;
+      return negated(cmd)
+        ? `Şu artık doğru olmayana kadar bekle: ${conditionText(cmd)}`
+        : `Şu doğru olana kadar bekle: ${conditionText(cmd)}`;
     case 'repeatStart':
       if (repeatMode(cmd) === 'forever') return 'Sonsuza kadar tekrarla';
       if (repeatMode(cmd) === 'until') {
-        return seesNot(cmd)
-          ? `Renk sensörü ${p} ${COLORS[cmd.color]} gördüğü sürece tekrarla`
-          : `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar tekrarla`;
+        return negated(cmd)
+          ? `Şu doğru olduğu sürece tekrarla: ${conditionText(cmd)}`
+          : `Şu doğru olana kadar tekrarla: ${conditionText(cmd)}`;
       }
       return `Tekrarla ${cmd.times} kez`;
     case 'repeatEnd':
       return 'Tekrar sonu';
     case 'ifStart':
-      return `Eğer renk sensörü ${p} ${COLORS[cmd.color]} ${seesNot(cmd) ? 'görmüyorsa' : 'görüyorsa'}`;
+      return `Eğer şu ${negated(cmd) ? 'doğru değilse' : 'doğruysa'}: ${conditionText(cmd)}`;
     case 'else':
       return 'Aksi halde';
     case 'ifEnd':

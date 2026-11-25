@@ -298,6 +298,7 @@ export class LwpSession {
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
             dev.position += delta;
+            if (Math.abs(delta) >= 2) dev.lastMoveAt = Date.now();
           }
           dev._lastAbs = abs;
           dev.absPosition = abs;

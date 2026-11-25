@@ -2,7 +2,7 @@
 // so every step can be announced while the robot is doing it.
 // Supports repeat (counted and forever), if/else and "together" blocks.
 
-import { parse, describe, PATTERNS, repeatMode } from './program-model.js';
+import { parse, describe, PATTERNS, repeatMode, condOf, negated, CONDITION_DEVICE } from './program-model.js';
 import { PORT_NAMES, COLORS } from './texts.js';
 
 import { stableColor as sensorColor } from './lwp.js';
@@ -34,6 +34,7 @@ export class Runner {
     this.finishedByCommand = false;
     this.step = 0;
     this.speed = 50;
+    this.startedAt = Date.now();
     this.background = [];
     this.portNotes = new Set();
     this.foreverDepth = 0; // "used the other port" notes already given in this run
@@ -109,10 +110,12 @@ export class Runner {
           for (let round = 1; forever || round <= node.cmd.times; round++) {
             this._check();
             if (mode === 'until') {
-              const { yes } = this._condition(node.cmd);
-              if (yes) {
-                const why = node.cmd.sees === 'no' ? 'renk artık görülmüyor' : 'renk görüldü';
-                this.onInfo(node.index, `${describe(node.cmd)}: ${why}, tekrar bitti.`, false);
+              // "olana kadar": stop when the condition becomes true.
+              // "olduğu sürece" (negated): stop when it is no longer true.
+              const raw = this._rawCondition(node.cmd);
+              const stop = negated(node.cmd) ? !raw.value : raw.value;
+              if (stop) {
+                this.onInfo(node.index, `${describe(node.cmd)}: tekrar bitti, ${raw.detail}.`, false);
                 break;
               }
             }
@@ -128,8 +131,8 @@ export class Runner {
         return undefined;
       }
       case 'if': {
-        const { yes, seen } = this._condition(node.cmd);
-        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : 'hayır'}, sensör şu an ${seen} görüyor.`, this.foreverDepth > 0);
+        const { yes, detail } = this._condition(node.cmd);
+        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : 'hayır'}, ${detail}.`, this.foreverDepth > 0);
         return this._nodes(yes ? node.then : node.otherwise);
       }
       case 'parallel': {
@@ -142,12 +145,48 @@ export class Runner {
     }
   }
 
+  // Evaluates a condition. Returns { yes, detail }: yes already takes "doğru değilse"
+  // into account; detail says what was measured, for the announcement.
   _condition(cmd) {
-    const session = this._session();
-    const dev = this._device(session, cmd.port, 'color', 'renk sensörü');
-    const color = sensorColor(dev);
-    const matches = color === cmd.color;
-    return { yes: cmd.sees === 'no' ? !matches : matches, seen: color >= 0 ? COLORS[color] || 'bir renk' : 'hiçbir renk' };
+    const raw = this._rawCondition(cmd);
+    return { yes: negated(cmd) ? !raw.value : raw.value, detail: raw.detail };
+  }
+
+  _rawCondition(cmd) {
+    const cond = condOf(cmd);
+    const kind = CONDITION_DEVICE[cond];
+    const session = kind ? this._session() : null;
+    const label = kind === 'color' ? 'renk sensörü' : 'motor';
+    const dev = kind ? this._device(session, cmd.port, kind, label) : null;
+    switch (cond) {
+      case 'colorSees':
+      case 'colorAny': {
+        const color = sensorColor(dev);
+        const seen = color >= 0 ? COLORS[color] || 'bir renk' : 'hiçbir renk';
+        return {
+          value: cond === 'colorSees' ? color === cmd.color : color !== -1,
+          detail: `sensör şu an ${seen} görüyor`,
+        };
+      }
+      case 'motorTurning': {
+        const turning = Date.now() - (dev.lastMoveAt || 0) < 300;
+        return { value: turning, detail: turning ? 'motor dönüyor' : 'motor duruyor' };
+      }
+      case 'motorAngle': {
+        const angle = ((dev.absPosition % 360) + 360) % 360;
+        return { value: angle > cmd.angle, detail: `motor şu an ${angle} derecede` };
+      }
+      case 'timer': {
+        const elapsed = (Date.now() - this.startedAt) / 1000;
+        return { value: elapsed >= cmd.seconds, detail: `${Math.floor(elapsed)} saniye geçti` };
+      }
+      case 'random': {
+        const heads = Math.random() < 0.5;
+        return { value: heads, detail: heads ? 'yazı geldi' : 'tura geldi' };
+      }
+      default:
+        return { value: false, detail: '' };
+    }
   }
 
   // A light color, or "what the color sensor sees" (black or nothing = light off).
@@ -279,15 +318,12 @@ export class Runner {
         await this._sleep(cmd.seconds * 1000);
         return;
       case 'waitColor': {
-        const s = this._session();
-        const { port } = this._device(s, cmd.port, 'color', 'renk sensörü');
+        // "Koşula göre bekle": wait until the condition is true (or, negated, no longer true).
+        // It must hold for two checks in a row, so a single odd reading does not count.
         let seen = 0;
         while (seen < 2) {
           this._check();
-          const dev = s.deviceAt(port);
-          if (!dev) throw new Error('Renk sensörü çıkarıldı.');
-          const matches = sensorColor(dev) === cmd.color;
-          seen = (cmd.sees === 'no' ? !matches : matches) ? seen + 1 : 0;
+          seen = this._condition(cmd).yes ? seen + 1 : 0;
           if (seen < 2) await this._sleep(POLL_MS);
         }
         return;

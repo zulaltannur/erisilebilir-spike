@@ -760,7 +760,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.16';
+const APP_VERSION = '2026-11-25.17';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {
