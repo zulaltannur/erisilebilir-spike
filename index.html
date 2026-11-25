@@ -113,6 +113,17 @@
         <button type="button" id="renk-sifirla-btn">Renk ayarını sıfırla</button>
       </div>
 
+      <h3>Eğim ayarı</h3>
+      <p id="egim-ayar-yardim">
+        Hub'ın önü ve solu, onu nasıl tuttuğunuza göre değişir. Uygulamaya öğretmek için
+        Hub'ı her zaman tuttuğunuz gibi tutun: önce düz, sonra öne, sonra sola eğerek ölçün.
+        Ayar bu tarayıcıda saklanır.
+      </p>
+      <div class="buton-satiri">
+        <button type="button" id="egim-ayar-btn" aria-describedby="egim-ayar-yardim">Eğim ayarını başlat</button>
+        <button type="button" id="egim-sifirla-btn">Eğim ayarını sıfırla</button>
+      </div>
+
       <h3>Sorun giderme</h3>
       <p id="tani-yardim">
         Bağlan düğmesi Hub'ı bulamıyorsa bu düğmeye basın. Chrome yakındaki bütün Bluetooth cihazlarını listeler.
@@ -145,6 +156,15 @@
       <button type="button" id="renk-olc-btn">Ölç</button>
       <button type="button" id="renk-atla-btn">Bu rengi atla</button>
       <button type="button" id="renk-bitir-btn">Bitir</button>
+    </div>
+  </dialog>
+
+  <dialog id="egim-dialog" aria-labelledby="egim-dialog-baslik" aria-describedby="egim-adim">
+    <h2 id="egim-dialog-baslik">Eğim ayarı</h2>
+    <p id="egim-adim"></p>
+    <div class="buton-satiri">
+      <button type="button" id="egim-olc-btn">Ölç</button>
+      <button type="button" id="egim-iptal-btn">İptal</button>
     </div>
   </dialog>
 

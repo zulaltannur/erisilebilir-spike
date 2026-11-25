@@ -4,21 +4,15 @@
 
 import { parse, describe, PATTERNS, repeatMode, condOf, negated, CONDITION_DEVICE } from './program-model.js';
 import { PORT_NAMES, COLORS } from './texts.js';
+import { tiltParts, tiltWords, TILT_DEG } from './tiltcal.js';
 
 import { stableColor as sensorColor } from './lwp.js';
 import { playProgramSound, playNote, speak, stopSpeaking } from './sounds.js';
 
 const POLL_MS = 50;
-const TILT_DEG = 25; // the Hub counts as tilted beyond this many degrees
-
-export function tiltWords(pitch, roll) {
-  if (Math.abs(roll) > 135 || Math.abs(pitch) > 135) return 'Hub ters duruyor';
-  if (pitch > TILT_DEG) return 'Hub öne eğik';
-  if (pitch < -TILT_DEG) return 'Hub arkaya eğik';
-  if (Math.abs(roll) > TILT_DEG) return 'Hub yana eğik';
-  return 'Hub düz duruyor';
-}
 const da = (port) => `${PORT_NAMES[port]}'${port === 0 ? 'da' : 'de'}`;
+
+export { tiltWords } from './tiltcal.js';
 
 class StopSignal extends Error {}
 
@@ -202,18 +196,23 @@ export class Runner {
       case 'hubTilted':
       case 'hubForward':
       case 'hubBackward':
+      case 'hubLeft':
+      case 'hubRight':
       case 'hubSide':
       case 'hubUpsideDown': {
         const s = this._session();
         if (!s.tilt) throw new Error('Bu Hub eğim bilgisi göndermiyor.');
         const { pitch, roll } = s.tilt;
-        const upsideDown = Math.abs(roll) > 135 || Math.abs(pitch) > 135;
+        const t = tiltParts(pitch, roll);
+        const up = !t.upsideDown;
         const value = {
-          hubTilted: Math.abs(pitch) > TILT_DEG || Math.abs(roll) > TILT_DEG,
-          hubForward: !upsideDown && pitch > TILT_DEG,
-          hubBackward: !upsideDown && pitch < -TILT_DEG,
-          hubSide: !upsideDown && Math.abs(roll) > TILT_DEG,
-          hubUpsideDown: upsideDown,
+          hubTilted: t.upsideDown || Math.abs(t.forward) > TILT_DEG || Math.abs(t.left) > TILT_DEG,
+          hubForward: up && t.forward > TILT_DEG,
+          hubBackward: up && t.forward < -TILT_DEG,
+          hubLeft: up && t.left > TILT_DEG,
+          hubRight: up && t.left < -TILT_DEG,
+          hubSide: up && Math.abs(t.left) > TILT_DEG,
+          hubUpsideDown: t.upsideDown,
         }[cond];
         return { value, detail: tiltWords(pitch, roll) };
       }

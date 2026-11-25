@@ -58,14 +58,16 @@ export const CONDITIONS = {
   hubTilted: 'Hub eğik (herhangi bir yöne)',
   hubForward: 'Hub öne eğik',
   hubBackward: 'Hub arkaya eğik',
-  hubSide: 'Hub yana eğik',
+  hubLeft: 'Hub sola eğik',
+  hubRight: 'Hub sağa eğik',
+  hubSide: 'Hub yana eğik (sola ya da sağa)',
   hubUpsideDown: 'Hub ters çevrilmiş',
   hubShaken: 'Hub sallandı',
   hubTapped: 'Hub\'a parmakla vuruldu',
 };
 // Which part a condition needs (null = none)
 export const CONDITION_DEVICE = { colorSees: 'color', colorAny: 'color', motorTurning: 'motor', motorAngle: 'motor', timer: null, random: null,
-  hubTilted: null, hubForward: null, hubBackward: null, hubSide: null, hubUpsideDown: null, hubShaken: null, hubTapped: null };
+  hubTilted: null, hubForward: null, hubBackward: null, hubLeft: null, hubRight: null, hubSide: null, hubUpsideDown: null, hubShaken: null, hubTapped: null };
 // Older programs stored only color conditions ("sees": 'yes' | 'no').
 export const condOf = (cmd) => cmd.cond || 'colorSees';
 export const negated = (cmd) => (cmd.negate ? cmd.negate === 'yes' : cmd.sees === 'no');
@@ -102,6 +104,10 @@ export function conditionText(cmd) {
       return 'Hub öne eğik';
     case 'hubBackward':
       return 'Hub arkaya eğik';
+    case 'hubLeft':
+      return 'Hub sola eğik';
+    case 'hubRight':
+      return 'Hub sağa eğik';
     case 'hubSide':
       return 'Hub yana eğik';
     case 'hubUpsideDown':
