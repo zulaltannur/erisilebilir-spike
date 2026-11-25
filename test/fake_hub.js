@@ -110,7 +110,13 @@
     }
     if (lwpState.subs.has(1) && state.color !== lwpState.color) {
       lwpState.color = state.color;
-      lwpSend([0x45, 1, state.color & 0xff]);
+      // color index -> a typical hue / saturation / brightness reading
+      const HSV = { 0: [0, 100, 30], 1: [310, 700, 300], 2: [275, 600, 250], 3: [240, 800, 300], 4: [212, 700, 400],
+        5: [185, 700, 350], 6: [140, 700, 300], 7: [55, 750, 500], 8: [25, 800, 450], 9: [353, 715, 291], 10: [0, 100, 700] };
+      const [h, s, v] = HSV[state.color] || [270, 0, 1];
+      const d = new DataView(new ArrayBuffer(6));
+      d.setInt16(0, h, true); d.setInt16(2, s, true); d.setInt16(4, v, true);
+      lwpSend([0x45, 1, ...new Uint8Array(d.buffer)]);
     }
   };
   let lwpColorAttached = true;

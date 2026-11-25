@@ -646,7 +646,7 @@ setConnectedUI(false);
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.5';
+const APP_VERSION = '2026-11-25.6';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

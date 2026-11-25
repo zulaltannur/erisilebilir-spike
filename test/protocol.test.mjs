@@ -4,6 +4,7 @@ import { pack, FrameDecoder } from '../js/cobs.js';
 import { crc32 } from '../js/crc.js';
 import { parseDeviceNotification, startFileUploadRequest } from '../js/protocol.js';
 import { T } from '../js/texts.js';
+import { colorFromHsv } from '../js/lwp.js';
 
 let fail = 0;
 const check = (ok, name, extra) => {
@@ -85,6 +86,14 @@ for (const n of [0, 1, 3, 4, 7, 100, 333]) {
 check(T.attached('A', 'motor') === "Port A'ya motor takıldı.", 'ek A', T.attached('A', 'motor'));
 check(T.attached('B', 'motor') === "Port B'ye motor takıldı.", 'ek B', T.attached('B', 'motor'));
 check(T.noMotorAt('A', 'B') === "Port A'da motor yok. Motor Port B'de.", 'ek bulunma', T.noMotorAt('A', 'B'));
+
+// 8. Color from hue/saturation/brightness (real red reading from an Essential sensor)
+check(colorFromHsv(353, 715, 291) === 9, 'renk: kırmızı');
+check(colorFromHsv(270, 0, 1) === -1, 'renk: önünde bir şey yok');
+check(colorFromHsv(240, 800, 300) === 3, 'renk: mavi');
+check(colorFromHsv(55, 750, 500) === 7, 'renk: sarı');
+check(colorFromHsv(140, 700, 300) === 6, 'renk: yeşil');
+check(colorFromHsv(0, 100, 700) === 10, 'renk: beyaz');
 
 console.log(fail ? `${fail} test başarısız` : 'Tüm testler geçti');
 process.exit(fail ? 1 : 0);

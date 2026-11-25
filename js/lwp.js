@@ -31,12 +31,34 @@ const FORCE_SENSOR = 0x3f;
 const COLOR_MATRIX = 0x40;
 
 const MOTOR_MODE_APOS = 3; // absolute position, int16 degrees (-180..179)
-const COLOR_MODE_COLOR = 0; // color index, same numbering as SPIKE (-1 = none)
+// On real Essential Hubs the sensor's own color mode (0) did not report color numbers,
+// so we read hue/saturation/brightness (mode 6, three int16) and decide the color here.
+const COLOR_MODE_HSV = 6;
 const MATRIX_MODE_PIXELS = 2; // 9 bytes: (brightness << 4) | color
 
 const SNAPSHOT_MS = 200;
 const STARTUP_SETTLE_MS = 600;
 const COMMAND_TIMEOUT_MS = 15000;
+
+// Turns hue (0-359), saturation (0-1000) and brightness (0-1000) into the SPIKE color
+// numbers: 0 black, 1 pink, 2 purple, 3 blue, 4 light blue, 5 turquoise, 6 green,
+// 7 yellow, 8 orange, 9 red, 10 white, -1 nothing in front of the sensor.
+// Measured on a real Essential sensor: nothing in front gives brightness about 1;
+// a red brick gives hue about 353, saturation about 700.
+export function colorFromHsv(h, s, v) {
+  if (v < 15) return -1;
+  if (s < 250) return v > 300 ? 10 : 0;
+  if (v < 40) return 0;
+  if (h >= 330 || h < 15) return 9;
+  if (h < 40) return 8;
+  if (h < 75) return 7;
+  if (h < 170) return 6;
+  if (h < 200) return 5;
+  if (h < 225) return 4;
+  if (h < 260) return 3;
+  if (h < 295) return 2;
+  return 1;
+}
 
 const kindOf = (type) => {
   if (MOTOR_TYPES.has(type)) return 'motor';
@@ -99,9 +121,9 @@ export class LwpSession {
     return this.writeQueue;
   }
 
-  _subscribe(port, mode) {
-    // delta = 1, notifications on
-    return this._send(msg(T.PORT_INPUT_FORMAT_SETUP, port, mode, 1, 0, 0, 0, 1));
+  _subscribe(port, mode, delta = 1) {
+    // delta (uint32), notifications on
+    return this._send(msg(T.PORT_INPUT_FORMAT_SETUP, port, mode, delta, 0, 0, 0, 1));
   }
 
   // ---------- Commands ----------
@@ -256,7 +278,8 @@ export class LwpSession {
             this._subscribe(port, MOTOR_MODE_APOS);
           } else if (kind === 'color') {
             dev.color = -1;
-            this._subscribe(port, COLOR_MODE_COLOR);
+            dev.hsv = null;
+            this._subscribe(port, COLOR_MODE_HSV, 5);
           } else if (kind === 'matrix3x3') {
             dev.pixels = Array.from({ length: 9 }, () => ({ brightness: 0, color: 0 }));
           }
@@ -281,8 +304,12 @@ export class LwpSession {
           }
           dev._lastAbs = abs;
           dev.absPosition = abs;
-        } else if (dev.kind === 'color' && m.length >= p + 2) {
-          dev.color = v.getInt8(p + 1);
+        } else if (dev.kind === 'color' && m.length >= p + 7) {
+          const h = v.getInt16(p + 1, true);
+          const s = v.getInt16(p + 3, true);
+          const b = v.getInt16(p + 5, true);
+          dev.hsv = { h, s, v: b };
+          dev.color = colorFromHsv(h, s, b);
         }
         break;
       }
