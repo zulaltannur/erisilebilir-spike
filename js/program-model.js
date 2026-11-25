@@ -5,6 +5,7 @@
 
 import { COLORS, PORT_NAMES } from './texts.js';
 import { PROGRAM_SOUNDS, NOTES } from './sounds.js';
+import { HOLD_TEXT } from './tiltcal.js';
 
 // 3x3 light matrix patterns. Index = row * 3 + column.
 export const PATTERNS = {
@@ -78,6 +79,7 @@ const conditionFields = (negateLabel, positive, negative) => [
   { ...colorField('Hangi renk'), showIf: ['colorSees'] },
   { key: 'angle', label: 'Kaç dereceden büyük (0 ile 359 arası)', type: 'number', min: 0, max: 359, step: 1, showIf: ['motorAngle'] },
   { key: 'seconds', label: 'Kaç saniye', type: 'number', min: 0.1, max: 600, step: 0.1, showIf: ['timer'] },
+  { key: 'holdNote', type: 'note', text: HOLD_TEXT, showIf: ['hubForward', 'hubBackward', 'hubLeft', 'hubRight', 'hubSide', 'hubTilted'] },
   { key: 'negate', label: negateLabel, type: 'choice', options: { no: positive, yes: negative } },
 ];
 const conditionDefaults = { cond: 'colorSees', port: 1, color: 9, angle: 90, seconds: 5, negate: 'no' };

@@ -376,7 +376,8 @@ export class Editor {
     this.fields.textContent = '';
     const fields = COMMAND_TYPES[typeKey].fields.filter((f) => !f.addOnly || adding);
     for (const f of fields) {
-      if (f.type === 'choice') this._select(`alan-${f.key}`, f.label, f.options, cmd[f.key]);
+      if (f.type === 'note') this._note(`alan-${f.key}`, f.text);
+      else if (f.type === 'choice') this._select(`alan-${f.key}`, f.label, f.options, cmd[f.key]);
       else if (f.type === 'text') this._text(`alan-${f.key}`, f.label, f, cmd[f.key]);
       else this._number(`alan-${f.key}`, f.label, f, cmd[f.key]);
     }
@@ -411,6 +412,18 @@ export class Editor {
       const el = this.fields.querySelector(`#alan-${f.key}`);
       if (el) el.closest('.alan').hidden = !(cond && f.showIf.includes(cond.value));
     }
+  }
+
+  // A short explanation shown among the settings (read by screen readers in order).
+  _note(id, text) {
+    const row = document.createElement('div');
+    row.className = 'alan';
+    const p = document.createElement('p');
+    p.id = id;
+    p.className = 'not';
+    p.textContent = text;
+    row.append(p);
+    this.fields.append(row);
   }
 
   _row(id, label) {
@@ -475,6 +488,7 @@ export class Editor {
     // A shortcut entry is stored as the real type with its preset values (for example mode: 'forever').
     const cmd = def.alias ? { ...def.defaults, type: def.alias } : { type };
     for (const f of def.fields) {
+      if (f.type === 'note') continue;
       const el = this.fields.querySelector(`#alan-${f.key}`);
       if (!el) continue;
       if (f.type === 'text') {

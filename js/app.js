@@ -3,7 +3,6 @@ import { Announcer } from './announcer.js';
 import { play, setSoundsEnabled, unlockAudio } from './sounds.js';
 import { EXAMPLES } from './examples.js';
 import { setCalibrationSample, clearCalibration, getCalibration } from './colorcal.js';
-import { teachTilt, clearTilt, isTiltTaught } from './tiltcal.js';
 import { T, PORT_NAMES, DEVICE_NAMES, colorName, isRealColor } from './texts.js';
 import { motorOneTurnProgram, parseConsoleLine } from './programs.js';
 import { Editor } from './editor.js';
@@ -767,64 +766,9 @@ $('renk-sifirla-btn').addEventListener('click', () => {
   say(n ? 'Renk ayarı sıfırlandı. Hazır ayarlar kullanılıyor.' : 'Kayıtlı bir renk ayarı yoktu.');
 });
 
-// ---------- Tilt calibration: where is "front" and "left" ----------
-
-const TILT_STEPS = [
-  { key: 'flat', text: 'Hub\'ı her zaman tuttuğunuz gibi tutun ve düz bırakın, sonra Ölç düğmesine basın.' },
-  { key: 'forward', text: 'Şimdi Hub\'ı öne eğin ve öyle tutarken Ölç düğmesine basın.' },
-  { key: 'left', text: 'Hub\'ı düzeltin. Şimdi sola eğin ve öyle tutarken Ölç düğmesine basın.' },
-];
-const tiltDialog = $('egim-dialog');
-let tiltStep = 0;
-const tiltReadings = {};
-
-function showTiltStep() {
-  const text = `${tiltStep + 1}. adım, 3 adımdan: ${TILT_STEPS[tiltStep].text}`;
-  $('egim-adim').textContent = text;
-  say(text, { logIt: false });
-}
-
-$('egim-ayar-btn').addEventListener('click', () => {
-  if (!hub.connected || !hub.lwp) return say(T.notConnected, { urgent: true });
-  if (!hub.lwp.tilt) return say('Bu Hub eğim bilgisi göndermiyor.', { urgent: true });
-  tiltStep = 0;
-  tiltDialog.showModal();
-  $('egim-olc-btn').focus();
-  showTiltStep();
-});
-
-$('egim-olc-btn').addEventListener('click', async () => {
-  say('Ölçülüyor, Hub\'ı oynatmayın.', { logIt: false });
-  const samples = [];
-  for (let k = 0; k < 8; k++) {
-    if (hub.lwp && hub.lwp.tilt) samples.push({ ...hub.lwp.tilt });
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  if (!samples.length) return say('Eğim okunamadı. Hub bağlı mı?', { urgent: true });
-  const med = (key) => samples.map((s) => s[key]).sort((a, b) => a - b)[samples.length >> 1];
-  const reading = { pitch: med('pitch'), roll: med('roll') };
-  const step = TILT_STEPS[tiltStep];
-  if (step.key !== 'flat') {
-    const moved = Math.hypot(reading.pitch - tiltReadings.flat.pitch, reading.roll - tiltReadings.flat.roll);
-    if (moved < 15) return say('Hub yeterince eğilmemiş. Biraz daha eğip tekrar Ölç düğmesine basın.', { urgent: true });
-  }
-  tiltReadings[step.key] = reading;
-  tiltStep += 1;
-  if (tiltStep < TILT_STEPS.length) return showTiltStep();
-  teachTilt(tiltReadings.flat, tiltReadings.forward, tiltReadings.left);
-  tiltDialog.close();
-  say('Eğim ayarı kaydedildi. Artık öne, arkaya, sola ve sağa eğim sizin tuttuğunuz yöne göre tanınıyor.');
-});
-$('egim-iptal-btn').addEventListener('click', () => tiltDialog.close());
-$('egim-sifirla-btn').addEventListener('click', () => {
-  const had = isTiltTaught();
-  clearTilt();
-  say(had ? 'Eğim ayarı sıfırlandı.' : 'Kayıtlı bir eğim ayarı yoktu.');
-});
-
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.19';
+const APP_VERSION = '2026-11-25.20';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

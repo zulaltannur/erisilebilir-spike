@@ -163,6 +163,7 @@ input[type="radio"], input[type="checkbox"] {
 button.geri { margin-bottom: 1rem; background: transparent; color: var(--text); }
 .ornekler p { margin: 0.25rem 0 0.75rem; }
 dialog h3 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
+.alan .not { margin: 0; padding: 0.5rem; border-left: 0.4rem solid var(--focus); }
 .ipucu { font-size: 0.9rem; color: var(--muted); }
 select, .alan input[type="text"] {
   font: inherit;
@@ -209,6 +210,7 @@ footer { margin-top: 3rem; font-size: 0.9rem; color: var(--muted); }
 button.geri { margin-bottom: 1rem; background: transparent; color: var(--text); }
 .ornekler p { margin: 0.25rem 0 0.75rem; }
 dialog h3 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
+.alan .not { margin: 0; padding: 0.5rem; border-left: 0.4rem solid var(--focus); }
 .ipucu { font-size: 0.9rem; color: var(--muted); }
 select, .alan input[type="text"] {
   font: inherit;
