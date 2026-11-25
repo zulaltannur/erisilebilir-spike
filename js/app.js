@@ -16,6 +16,7 @@ const LOW_BATTERY = 20;
 const MOTOR_MOVE_THRESHOLD = 3; // degrees between two updates
 const MOTOR_STILL_COUNT = 2; // updates without movement = stopped
 const MOTOR_TURN_MIN = 10; // degrees: smaller movements are jitter, not a turn
+const TILT_SETTLE_MS = 500; // a new posture is announced after being held this long
 const COLOR_CONFIRM_COUNT = 2; // same new color this many updates in a row (about 0.4 s)
 
 const hub = new Hub();
@@ -41,6 +42,9 @@ const state = {
   awaitingFirstSnapshot: false, // set on connect; first data is reported in one sentence
   programEndedAt: 0,
   lastGestureAt: 0,
+  tiltCandidate: null, // posture being held
+  tiltSince: 0,
+  tiltSaid: null, // posture last announced
 };
 
 // ---------- Connection ----------
@@ -273,10 +277,27 @@ hub.addEventListener('devices', (e) => {
     }
   }
 
-  const g = hub.lwp && hub.lwp.gesture;
-  if (g && g.at !== state.lastGestureAt) {
-    state.lastGestureAt = g.at;
-    if (!state.programRunning) say(g.code === 3 ? 'Hub sallandı.' : 'Hub\'a vuruldu.');
+  // While exploring: say how the Hub is held when that changes (after it has been held
+  // still for a moment), and when it is shaken. A bump (code 1) also happens when the
+  // Hub is simply put down, so it is not announced.
+  if (!state.programRunning && hub.lwp) {
+    const g = hub.lwp.gesture;
+    if (g && g.at !== state.lastGestureAt) {
+      state.lastGestureAt = g.at;
+      if (g.code === 3) say('Hub sallandı.');
+    }
+    const t = hub.lwp.tilt;
+    if (t) {
+      const words = tiltWords(t.pitch, t.roll);
+      if (words !== state.tiltCandidate) {
+        state.tiltCandidate = words;
+        state.tiltSince = Date.now();
+      } else if (words !== state.tiltSaid && Date.now() - state.tiltSince >= TILT_SETTLE_MS) {
+        const first = state.tiltSaid === null;
+        state.tiltSaid = words;
+        if (!first) say(`${words}.`);
+      }
+    }
   }
 
   state.ports = newPorts;
@@ -768,7 +789,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.20';
+const APP_VERSION = '2026-11-25.21';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

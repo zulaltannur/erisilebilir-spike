@@ -462,7 +462,15 @@ with sync_playwright() as p:
     start = len(said())
     page.evaluate('window.__gesture(1)')
     page.wait_for_timeout(500)
-    expect("Hub'a vuruldu." in said()[start:], 'vurma: Keşfet sırasında duyuruldu')
+    expect("Hub'a vuruldu." not in said()[start:], 'darbe: Keşfet sırasında duyurulmadı (masaya koyma da darbe sayılıyor)')
+    page.evaluate('window.__gesture(3)')
+    page.wait_for_timeout(500)
+    expect('Hub sallandı.' in said()[start:], 'sallama: Keşfet sırasında duyuruldu')
+    # Posture changes are spoken while exploring
+    start = len(said())
+    page.evaluate('window.__fake.pitch = 60'); page.wait_for_timeout(1200)
+    page.evaluate('window.__fake.pitch = 2'); page.wait_for_timeout(1200)
+    expect('Hub öne eğik.' in said()[start:] and 'Hub düz duruyor.' in said()[start:], 'eğim: duruş değişince okundu ' + json.dumps(said()[start:], ensure_ascii=False))
 
     # Fixed directions for the standard hold (USB port towards you): forward = pitch +, left = roll +
     page.evaluate('window.__fake.pitch = 60; window.__fake.roll = 1'); page.wait_for_timeout(400)

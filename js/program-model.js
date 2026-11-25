@@ -64,7 +64,7 @@ export const CONDITIONS = {
   hubSide: 'Hub yana eğik (sola ya da sağa)',
   hubUpsideDown: 'Hub ters çevrilmiş',
   hubShaken: 'Hub sallandı',
-  hubTapped: 'Hub\'a parmakla vuruldu',
+  hubTapped: 'Hub\'a darbe geldi (vurma, çarpma ya da masaya koyma)',
 };
 // Which part a condition needs (null = none)
 export const CONDITION_DEVICE = { colorSees: 'color', colorAny: 'color', motorTurning: 'motor', motorAngle: 'motor', timer: null, random: null,
@@ -117,7 +117,7 @@ export function conditionText(cmd) {
     case 'hubShaken':
       return 'Hub sallandı';
     case 'hubTapped':
-      return 'Hub\'a vuruldu';
+      return 'Hub\'a darbe geldi';
     default:
       return condOf(cmd);
   }

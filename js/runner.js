@@ -191,7 +191,7 @@ export class Runner {
       case 'hubTapped': {
         const s = this._session();
         const yes = s.recentGesture(cond === 'hubShaken' ? 3 : 1);
-        return { value: yes, detail: yes ? (cond === 'hubShaken' ? 'Hub sallandı' : 'Hub\'a vuruldu') : 'hareket yok' };
+        return { value: yes, detail: yes ? (cond === 'hubShaken' ? 'Hub sallandı' : 'Hub\'a darbe geldi') : 'hareket yok' };
       }
       case 'hubTilted':
       case 'hubForward':
