@@ -5,7 +5,7 @@ export const COLORS = {
   0: 'siyah',
   1: 'pembe',
   2: 'mor',
-  3: 'mavi',
+  3: 'koyu mavi',
   4: 'açık mavi',
   5: 'turkuaz',
   6: 'yeşil',
