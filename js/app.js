@@ -6,7 +6,7 @@ import { setCalibrationSample, clearCalibration, getCalibration } from './colorc
 import { T, PORT_NAMES, DEVICE_NAMES, colorName, isRealColor } from './texts.js';
 import { motorOneTurnProgram, parseConsoleLine } from './programs.js';
 import { Editor } from './editor.js';
-import { Runner } from './runner.js';
+import { Runner, tiltWords } from './runner.js';
 import { validate } from './program-model.js';
 
 const $ = (id) => document.getElementById(id);
@@ -40,6 +40,7 @@ const state = {
   batteryWarned: false,
   awaitingFirstSnapshot: false, // set on connect; first data is reported in one sentence
   programEndedAt: 0,
+  lastGestureAt: 0,
 };
 
 // ---------- Connection ----------
@@ -272,6 +273,12 @@ hub.addEventListener('devices', (e) => {
     }
   }
 
+  const g = hub.lwp && hub.lwp.gesture;
+  if (g && g.at !== state.lastGestureAt) {
+    state.lastGestureAt = g.at;
+    if (!state.programRunning) say(g.code === 3 ? 'Hub sallandı.' : 'Hub\'a vuruldu.');
+  }
+
   state.ports = newPorts;
   renderList();
 });
@@ -284,8 +291,9 @@ let activeIndex = 0;
 
 function renderList() {
   const opts = options();
+  const tilt = hub.lwp && hub.lwp.tilt ? `, ${tiltWords(hub.lwp.tilt.pitch, hub.lwp.tilt.roll)}` : '';
   opts[0].textContent = hub.connected
-    ? T.hubOption(hub.name, state.battery)
+    ? T.hubOption(hub.name, state.battery) + tilt
     : T.hubNotConnectedOption;
   opts[1].textContent = describePort(0);
   opts[2].textContent = describePort(1);
@@ -760,7 +768,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.17';
+const APP_VERSION = '2026-11-25.18';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

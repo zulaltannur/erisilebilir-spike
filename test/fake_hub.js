@@ -2,7 +2,8 @@
 (() => {
   const said = [];
   window.__said = said;
-  const state = { battery: 80, motorPos: 0, color: 3, colorAttached: true };
+  const state = { battery: 80, motorPos: 0, color: 3, colorAttached: true, pitch: 2, roll: 1 };
+  window.__gesture = (code) => { lwpSend([0x45, 0x5f, code]); setTimeout(() => lwpSend([0x45, 0x5f, 0]), 100); };
   window.__fake = state;
 
   let cobs = null;
@@ -124,9 +125,20 @@
     setTimeout(() => {
       lwpSend([0x04, 0, 1, 0x41, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // motor on A
       lwpSend([0x04, 1, 1, 0x3d, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // color sensor on B
-      lwpSend([0x04, 0x32, 1, 0x17, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // internal port, ignored
+      lwpSend([0x04, 0x32, 1, 0x17, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // hub light (internal)
+      lwpSend([0x04, 0x63, 1, 0x3b, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // tilt (internal)
+      lwpSend([0x04, 0x5f, 1, 0x36, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // gestures (internal)
       setInterval(() => {
         lwpPushValues();
+        if (lwpState.subs.has(0x63)) {
+          const key = `${state.pitch}/${state.roll}`;
+          if (key !== lwpState.tiltKey) {
+            lwpState.tiltKey = key;
+            const d = new DataView(new ArrayBuffer(6));
+            d.setInt16(0, 720, true); d.setInt16(2, state.pitch * 10, true); d.setInt16(4, state.roll * 10, true);
+            lwpSend([0x45, 0x63, ...new Uint8Array(d.buffer)]);
+          }
+        }
         if (state.colorAttached !== lwpColorAttached) {
           lwpColorAttached = state.colorAttached;
           if (lwpColorAttached) lwpSend([0x04, 1, 1, 0x3d, 0, 0, 0, 0, 0, 0, 0, 0, 0]);

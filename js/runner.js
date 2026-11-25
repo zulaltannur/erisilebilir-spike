@@ -9,6 +9,15 @@ import { stableColor as sensorColor } from './lwp.js';
 import { playProgramSound, playNote, speak, stopSpeaking } from './sounds.js';
 
 const POLL_MS = 50;
+const TILT_DEG = 25; // the Hub counts as tilted beyond this many degrees
+
+export function tiltWords(pitch, roll) {
+  if (Math.abs(roll) > 135 || Math.abs(pitch) > 135) return 'Hub ters duruyor';
+  if (pitch > TILT_DEG) return 'Hub öne eğik';
+  if (pitch < -TILT_DEG) return 'Hub arkaya eğik';
+  if (Math.abs(roll) > TILT_DEG) return 'Hub yana eğik';
+  return 'Hub düz duruyor';
+}
 const da = (port) => `${PORT_NAMES[port]}'${port === 0 ? 'da' : 'de'}`;
 
 class StopSignal extends Error {}
@@ -183,6 +192,30 @@ export class Runner {
       case 'random': {
         const heads = Math.random() < 0.5;
         return { value: heads, detail: heads ? 'yazı geldi' : 'tura geldi' };
+      }
+      case 'hubShaken':
+      case 'hubTapped': {
+        const s = this._session();
+        const yes = s.recentGesture(cond === 'hubShaken' ? 3 : 1);
+        return { value: yes, detail: yes ? (cond === 'hubShaken' ? 'Hub sallandı' : 'Hub\'a vuruldu') : 'hareket yok' };
+      }
+      case 'hubTilted':
+      case 'hubForward':
+      case 'hubBackward':
+      case 'hubSide':
+      case 'hubUpsideDown': {
+        const s = this._session();
+        if (!s.tilt) throw new Error('Bu Hub eğim bilgisi göndermiyor.');
+        const { pitch, roll } = s.tilt;
+        const upsideDown = Math.abs(roll) > 135 || Math.abs(pitch) > 135;
+        const value = {
+          hubTilted: Math.abs(pitch) > TILT_DEG || Math.abs(roll) > TILT_DEG,
+          hubForward: !upsideDown && pitch > TILT_DEG,
+          hubBackward: !upsideDown && pitch < -TILT_DEG,
+          hubSide: !upsideDown && Math.abs(roll) > TILT_DEG,
+          hubUpsideDown: upsideDown,
+        }[cond];
+        return { value, detail: tiltWords(pitch, roll) };
       }
       default:
         return { value: false, detail: '' };

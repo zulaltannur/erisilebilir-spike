@@ -24,6 +24,12 @@ const T = {
 
 const PROP_BATTERY = 0x06;
 const RGB_LIGHT = 0x17; // the Hub's own status light (internal port)
+// Internal motion sensors of the Essential Small Hub (found on a real Hub):
+// port 0x63 mode 0 "POS" = yaw, pitch, roll in tenths of a degree;
+// port 0x5f mode 0 "GEST" = gesture: 1 = tap, 3 = shake (0 = nothing).
+const TILT_PORT = 0x63;
+const GESTURE_PORT = 0x5f;
+const GESTURE_MEMORY_MS = 700; // a tap or shake counts for this long
 
 // Device type ids -> our device kinds
 const MOTOR_TYPES = new Set([0x26, 0x2e, 0x2f, 0x30, 0x31, 0x41, 0x4b, 0x4c]);
@@ -72,6 +78,8 @@ export class LwpSession {
     this.emit = emit;
     this.battery = null;
     this.rgbPort = null;
+    this.tilt = null; // { pitch, roll } in degrees, when the Hub reports it
+    this.gesture = null; // last tap or shake
     this.ports = new Map(); // port -> { kind, type, ...values }
     this.pending = new Map(); // port -> { resolve, timer, sawProgress }
     this.spinning = new Set();
@@ -196,6 +204,11 @@ export class LwpSession {
     return this._command(this.rgbPort, 0x51, [0x00, color], { wait: false });
   }
 
+  // True if the Hub reported this gesture (1 = tap, 3 = shake) a moment ago.
+  recentGesture(code) {
+    return !!(this.gesture && this.gesture.code === code && Date.now() - this.gesture.at < GESTURE_MEMORY_MS);
+  }
+
   deviceAt(port) {
     return this.ports.get(port) || null;
   }
@@ -257,8 +270,10 @@ export class LwpSession {
         const port = m[p];
         const event = m[p + 1];
         if (port > 1) {
-          // internal ports: remember where the Hub's own light is
+          // internal ports: remember where the Hub's own light is, and use the motion sensors
           if (event === 1 && v.getUint16(p + 2, true) === RGB_LIGHT) this.rgbPort = port;
+          if (event === 1 && port === TILT_PORT) this._subscribe(TILT_PORT, 0, 10);
+          if (event === 1 && port === GESTURE_PORT) this._subscribe(GESTURE_PORT, 0, 1);
           break;
         }
         if (event === 0) {
@@ -288,6 +303,14 @@ export class LwpSession {
 
       case T.PORT_VALUE_SINGLE: {
         const port = m[p];
+        if (port === TILT_PORT && m.length >= p + 7) {
+          this.tilt = { pitch: v.getInt16(p + 3, true) / 10, roll: v.getInt16(p + 5, true) / 10 };
+          break;
+        }
+        if (port === GESTURE_PORT) {
+          if (m[p + 1]) this.gesture = { code: m[p + 1], at: Date.now() };
+          break;
+        }
         const dev = this.ports.get(port);
         if (!dev) break;
         if (dev.kind === 'motor' && m.length >= p + 3) {
