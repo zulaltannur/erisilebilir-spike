@@ -28,14 +28,6 @@ export const ROWS = { 0: 'üst', 1: 'orta', 2: 'alt' };
 export const COLUMNS = { 0: 'sol', 1: 'orta', 2: 'sağ' };
 
 const portField = { key: 'port', label: 'Port', type: 'choice', options: { 0: 'A', 1: 'B' } };
-// The simplest way to do two things at once: this command starts, and the program
-// goes on to the next command without waiting for it to finish.
-const togetherField = {
-  key: 'together',
-  label: 'Sonraki komutla aynı anda çalışsın mı?',
-  type: 'choice',
-  options: { no: 'Hayır, bitmesini bekle', yes: 'Evet, sonraki komut da hemen başlasın' },
-};
 const realColors = Object.fromEntries(Object.entries(COLORS).filter(([k]) => k !== '0'));
 const colorField = (label = 'Renk') => ({ key: 'color', label, type: 'choice', options: realColors });
 const hubColors = { 0: 'kapalı', ...realColors };
@@ -59,15 +51,14 @@ export const COMMAND_TYPES = {
       { key: 'amount', label: 'Ne kadar', type: 'number', min: 0.1, max: 100, step: 0.1 },
       { key: 'unit', label: 'Birim', type: 'choice', options: UNITS },
       { key: 'direction', label: 'Yön', type: 'choice', options: DIRECTIONS },
-      togetherField,
     ],
-    defaults: { port: 0, amount: 1, unit: 'rotations', direction: 'cw', together: 'no' },
+    defaults: { port: 0, amount: 1, unit: 'rotations', direction: 'cw' },
   },
   motorGoTo: {
     group: 'motor',
     name: 'Motoru bir konuma getir',
-    fields: [portField, { key: 'position', label: 'Konum, derece', type: 'number', min: 0, max: 359, step: 1 }, togetherField],
-    defaults: { port: 0, position: 0, together: 'no' },
+    fields: [portField, { key: 'position', label: 'Konum, derece', type: 'number', min: 0, max: 359, step: 1 }],
+    defaults: { port: 0, position: 0 },
   },
   motorStart: {
     group: 'motor',
@@ -115,8 +106,8 @@ export const COMMAND_TYPES = {
   sound: {
     group: 'sound',
     name: 'Bilgisayardan ses çal',
-    fields: [{ key: 'sound', label: 'Ses', type: 'choice', options: SOUNDS }, togetherField],
-    defaults: { sound: 'beep', together: 'no' },
+    fields: [{ key: 'sound', label: 'Ses', type: 'choice', options: SOUNDS }],
+    defaults: { sound: 'beep' },
   },
   note: {
     group: 'sound',
@@ -124,15 +115,14 @@ export const COMMAND_TYPES = {
     fields: [
       { key: 'note', label: 'Nota', type: 'choice', options: NOTE_NAMES },
       { key: 'seconds', label: 'Kaç saniye', type: 'number', min: 0.1, max: 4, step: 0.1 },
-      togetherField,
     ],
-    defaults: { note: 'C', seconds: 0.5, together: 'no' },
+    defaults: { note: 'C', seconds: 0.5 },
   },
   speak: {
     group: 'sound',
     name: 'Bilgisayar konuşsun',
-    fields: [{ key: 'text', label: 'Ne söylesin', type: 'text', maxLength: 120 }, togetherField],
-    defaults: { text: 'Merhaba', together: 'no' },
+    fields: [{ key: 'text', label: 'Ne söylesin', type: 'text', maxLength: 120 }],
+    defaults: { text: 'Merhaba' },
   },
   // ---- Waiting and sensors
   wait: {
@@ -196,11 +186,6 @@ export const blockEndFor = (t) => BLOCK_END[t];
 const fmt = (n) => String(n).replace('.', ',');
 
 export function describe(cmd) {
-  const text = describeBase(cmd);
-  return cmd.together === 'yes' ? `${text}, sonraki komutla birlikte` : text;
-}
-
-function describeBase(cmd) {
   const p = PORT_NAMES[cmd.port];
   switch (cmd.type) {
     case 'motorRun':
@@ -346,7 +331,7 @@ export function parse(program) {
         const start = i++;
         const body = parseUntil(['parallelEnd']);
         if (i >= program.length) fail(start, `${n(start)}: Aynı anda bloğunun sonu yok.`);
-        if (body.length < 2) fail(start, `${n(start)}: Aynı anda bloğunun içinde en az iki komut olmalı, şu an ${body.length} komut var. Bloğun dışındaki bir komutu içeri almak için o komuta gidip Alt ve ok tuşlarıyla bloğun içine taşıyın. Daha kolay yol: komutu düzenleyip Sonraki komutla aynı anda çalışsın mı sorusuna Evet deyin. ${HOW_TO_FILL}`);
+        if (body.length < 2) fail(start, `${n(start)}: Aynı anda bloğunun içinde en az iki komut olmalı, şu an ${body.length} komut var. Bloğun dışındaki bir komutu içeri almak için o komuta gidip Alt ve ok tuşlarıyla bloğun içine taşıyın. ${HOW_TO_FILL}`);
         const ports = new Set();
         for (const node of body) {
           if (node.kind !== 'cmd') fail(node.index, `${n(node.index)}: Aynı anda bloğunun içine başka bir blok konamaz.`);

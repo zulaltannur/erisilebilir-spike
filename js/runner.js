@@ -138,11 +138,6 @@ export class Runner {
     const { cmd, index } = node;
     this.step += 1;
     this.onStep(index, this.step, describe(cmd));
-    if (cmd.together === 'yes' && !inParallel) {
-      // Start it and go straight on to the next command; errors surface at the end.
-      this.background.push(this._exec(cmd).catch((err) => err));
-      return;
-    }
     await this._exec(cmd);
   }
 

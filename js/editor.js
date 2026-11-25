@@ -9,7 +9,9 @@ const load = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const data = raw ? JSON.parse(raw) : null;
-    return Array.isArray(data) ? data.filter((c) => c && COMMAND_TYPES[c.type]) : [];
+    return Array.isArray(data)
+      ? data.filter((c) => c && COMMAND_TYPES[c.type]).map(({ together, ...c }) => c)
+      : [];
   } catch {
     return [];
   }
