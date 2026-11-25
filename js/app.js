@@ -2,6 +2,7 @@ import { Hub } from './hub.js';
 import { Announcer } from './announcer.js';
 import { play, setSoundsEnabled, unlockAudio } from './sounds.js';
 import { EXAMPLES } from './examples.js';
+import { setCalibrationSample, clearCalibration, getCalibration } from './colorcal.js';
 import { T, PORT_NAMES, DEVICE_NAMES, colorName, isRealColor } from './texts.js';
 import { motorOneTurnProgram, parseConsoleLine } from './programs.js';
 import { Editor } from './editor.js';
@@ -644,9 +645,88 @@ $('ses-ayari').addEventListener('change', (e) => setSoundsEnabled(e.target.check
 $('baglanti-yardim').textContent = Hub.isSupported() ? T.connectHelp : T.notSupported;
 setConnectedUI(false);
 
+// ---------- Color sensor calibration ----------
+// The user shows each color to the sensor; the app stores its hue/saturation/brightness.
+
+const CAL_ORDER = [7, 8, 9, 2, 3, 4, 5, 6, 1, 10, 0];
+const calDialog = $('renk-dialog');
+let calStep = 0;
+let calSaved = 0;
+
+function colorSensor() {
+  if (!hub.lwp) return null;
+  for (const dev of hub.lwp.ports.values()) if (dev.kind === 'color') return dev;
+  return null;
+}
+
+function showCalStep() {
+  if (calStep >= CAL_ORDER.length) {
+    calDialog.close();
+    say(calSaved >= 2
+      ? `Renk ayarı tamamlandı. ${calSaved} renk kaydedildi. Artık renkler bu ölçümlere göre tanınıyor.`
+      : 'Renk ayarı bitti. En az iki renk ölçülmediği için hazır ayarlar kullanılmaya devam ediyor.');
+    return;
+  }
+  const name = colorName(CAL_ORDER[calStep]);
+  const text = `${calStep + 1}. renk, ${CAL_ORDER.length} renkten: ${name}. ${name} bir parçayı sensörün önüne, neredeyse değecek kadar yakın tutun ve Ölç düğmesine basın. Bu renkte parçanız yoksa Bu rengi atla düğmesine basın.`;
+  $('renk-adim').textContent = text;
+  say(text, { logIt: false });
+}
+
+$('renk-ayar-btn').addEventListener('click', () => {
+  if (!hub.connected || hub.protocol !== 'lwp') return say(T.notConnected, { urgent: true });
+  if (!colorSensor()) return say('Önce renk sensörünü Hub\'a takın.', { urgent: true });
+  calStep = 0;
+  calSaved = 0;
+  calDialog.showModal();
+  $('renk-olc-btn').focus();
+  showCalStep();
+});
+
+$('renk-olc-btn').addEventListener('click', async () => {
+  const dev = colorSensor();
+  if (!dev) return say('Renk sensörü bulunamadı. Takılı olduğundan emin olun.', { urgent: true });
+  say('Ölçülüyor, parçayı oynatmayın.', { logIt: false });
+  const readings = [];
+  for (let k = 0; k < 8; k++) {
+    if (dev.hsv) readings.push({ ...dev.hsv });
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  const med = (key) => readings.map((r) => r[key]).sort((a, b) => a - b)[readings.length >> 1];
+  if (!readings.length || med('v') < 15) {
+    say('Sensörün önünde bir parça algılanmadı. Parçayı daha yakın tutup tekrar Ölç düğmesine basın.', { urgent: true });
+    return;
+  }
+  // Hue wraps around at 360: use the reading closest to the others (red can be 2 or 358).
+  const hs = readings.map((r) => r.h);
+  const h = hs.reduce((best, x) => {
+    const cost = (c) => hs.reduce((sum, y) => sum + Math.min(Math.abs(c - y), 360 - Math.abs(c - y)), 0);
+    return cost(x) < cost(best) ? x : best;
+  }, hs[0]);
+  setCalibrationSample(CAL_ORDER[calStep], { h, s: med('s'), v: med('v') });
+  calSaved += 1;
+  say(`${colorName(CAL_ORDER[calStep])} kaydedildi.`);
+  calStep += 1;
+  showCalStep();
+});
+
+$('renk-atla-btn').addEventListener('click', () => {
+  calStep += 1;
+  showCalStep();
+});
+$('renk-bitir-btn').addEventListener('click', () => {
+  calStep = CAL_ORDER.length;
+  showCalStep();
+});
+$('renk-sifirla-btn').addEventListener('click', () => {
+  const n = Object.keys(getCalibration()).length;
+  clearCalibration();
+  say(n ? 'Renk ayarı sıfırlandı. Hazır ayarlar kullanılıyor.' : 'Kayıtlı bir renk ayarı yoktu.');
+});
+
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.6';
+const APP_VERSION = '2026-11-25.7';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

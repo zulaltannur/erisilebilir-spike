@@ -4,7 +4,7 @@ import { pack, FrameDecoder } from '../js/cobs.js';
 import { crc32 } from '../js/crc.js';
 import { parseDeviceNotification, startFileUploadRequest } from '../js/protocol.js';
 import { T } from '../js/texts.js';
-import { colorFromHsv } from '../js/lwp.js';
+import { colorFromHsv } from '../js/colorcal.js';
 
 let fail = 0;
 const check = (ok, name, extra) => {

@@ -101,6 +101,18 @@
         <input type="checkbox" id="ses-ayari" checked>
         Uyarı seslerini çal
       </label>
+      <h3>Renk sensörü ayarı</h3>
+      <p id="renk-ayar-yardim">
+        Renk sensörü bazı renkleri karıştırıyorsa, uygulamaya kendi parçalarınızın renklerini öğretin.
+        Uygulama her rengi tek tek ister; parçayı sensöre tutup Ölç düğmesine basarsınız.
+        Elinizdeki bütün renkleri ölçün: ölçülmeyen bir renk, ölçülenlerden en çok benzediğine yakıştırılır.
+        Ayar bu tarayıcıda saklanır.
+      </p>
+      <div class="buton-satiri">
+        <button type="button" id="renk-ayar-btn" aria-describedby="renk-ayar-yardim">Renk ayarını başlat</button>
+        <button type="button" id="renk-sifirla-btn">Renk ayarını sıfırla</button>
+      </div>
+
       <h3>Sorun giderme</h3>
       <p id="tani-yardim">
         Bağlan düğmesi Hub'ı bulamıyorsa bu düğmeye basın. Chrome yakındaki bütün Bluetooth cihazlarını listeler.
@@ -124,6 +136,16 @@
         <button type="button" id="komut-iptal">İptal</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="renk-dialog" aria-labelledby="renk-dialog-baslik" aria-describedby="renk-adim">
+    <h2 id="renk-dialog-baslik">Renk ayarı</h2>
+    <p id="renk-adim"></p>
+    <div class="buton-satiri">
+      <button type="button" id="renk-olc-btn">Ölç</button>
+      <button type="button" id="renk-atla-btn">Bu rengi atla</button>
+      <button type="button" id="renk-bitir-btn">Bitir</button>
+    </div>
   </dialog>
 
   <dialog id="ornek-dialog" aria-labelledby="ornek-baslik">

@@ -8,6 +8,8 @@
 //   'consoleLine'    -> '@BASLA', '@ADIM n', '@BITTI' markers while a command runs
 //   'programStopped' -> a running command was stopped
 
+import { colorFromHsv } from './colorcal.js';
+
 export const LWP_SERVICE_UUID = '00001623-1212-efde-1623-785feabcd123';
 export const LWP_CHAR_UUID = '00001624-1212-efde-1623-785feabcd123';
 
@@ -39,26 +41,6 @@ const MATRIX_MODE_PIXELS = 2; // 9 bytes: (brightness << 4) | color
 const SNAPSHOT_MS = 200;
 const STARTUP_SETTLE_MS = 600;
 const COMMAND_TIMEOUT_MS = 15000;
-
-// Turns hue (0-359), saturation (0-1000) and brightness (0-1000) into the SPIKE color
-// numbers: 0 black, 1 pink, 2 purple, 3 blue, 4 light blue, 5 turquoise, 6 green,
-// 7 yellow, 8 orange, 9 red, 10 white, -1 nothing in front of the sensor.
-// Measured on a real Essential sensor: nothing in front gives brightness about 1;
-// a red brick gives hue about 353, saturation about 700.
-export function colorFromHsv(h, s, v) {
-  if (v < 15) return -1;
-  if (s < 250) return v > 300 ? 10 : 0;
-  if (v < 40) return 0;
-  if (h >= 330 || h < 15) return 9;
-  if (h < 40) return 8;
-  if (h < 75) return 7;
-  if (h < 170) return 6;
-  if (h < 200) return 5;
-  if (h < 225) return 4;
-  if (h < 260) return 3;
-  if (h < 295) return 2;
-  return 1;
-}
 
 const kindOf = (type) => {
   if (MOTOR_TYPES.has(type)) return 'motor';
