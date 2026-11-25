@@ -646,7 +646,7 @@ setConnectedUI(false);
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.4';
+const APP_VERSION = '2026-11-25.5';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {
@@ -663,4 +663,4 @@ async function checkForUpdate() {
 setInterval(checkForUpdate, 120000);
 
 // Test hook: lets the automated tests load programs directly.
-window.__erisilebilir = { editor };
+window.__erisilebilir = { editor, hub };

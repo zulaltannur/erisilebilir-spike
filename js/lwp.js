@@ -60,7 +60,8 @@ export class LwpSession {
     this.rgbPort = null;
     this.ports = new Map(); // port -> { kind, type, ...values }
     this.pending = new Map(); // port -> { resolve, timer, sawProgress }
-    this.spinning = new Set(); // motors started with "keep turning" and not stopped yet
+    this.spinning = new Set();
+    this.stats = { messages: 0, lastAt: 0, lastValue: {} }; // motors started with "keep turning" and not stopped yet
     this.writeQueue = Promise.resolve();
     this.snapshotTimer = null;
     this._onValue = (e) => this._onData(e.target.value);
@@ -221,6 +222,10 @@ export class LwpSession {
 
   _handle(m, headerLen) {
     const type = m[headerLen + 1];
+    // Diagnostics (read with the browser console): message count and last raw values per port.
+    this.stats.messages += 1;
+    this.stats.lastAt = Date.now();
+    if (type === T.PORT_VALUE_SINGLE) this.stats.lastValue[m[headerLen + 2]] = Array.from(m);
     const p = headerLen + 2; // first payload byte
     const v = new DataView(m.buffer, m.byteOffset, m.byteLength);
 
