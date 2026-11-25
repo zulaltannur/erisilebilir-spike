@@ -3,7 +3,9 @@
 // Supports repeat (counted and forever), if/else and "together" blocks.
 
 import { parse, describe, PATTERNS } from './program-model.js';
-import { PORT_NAMES } from './texts.js';
+import { PORT_NAMES, COLORS } from './texts.js';
+
+const sensorColor = (dev) => (dev.stableColor !== undefined ? dev.stableColor : dev.color);
 import { playProgramSound, playNote, speak, stopSpeaking } from './sounds.js';
 
 const POLL_MS = 50;
@@ -108,8 +110,8 @@ export class Runner {
         return undefined;
       }
       case 'if': {
-        const yes = this._condition(node.cmd);
-        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : 'hayır'}.`);
+        const { yes, seen } = this._condition(node.cmd);
+        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : `hayır, sensör şu an ${seen} görüyor`}.`);
         return this._nodes(yes ? node.then : node.otherwise);
       }
       case 'parallel': {
@@ -125,13 +127,19 @@ export class Runner {
   _condition(cmd) {
     const session = this._session();
     const dev = this._device(session, cmd.port, 'color', 'renk sensörü');
-    return dev.color === cmd.color;
+    const color = sensorColor(dev);
+    return { yes: color === cmd.color, seen: color >= 0 ? COLORS[color] || 'bir renk' : 'hiçbir renk' };
   }
 
   // A light color, or "what the color sensor sees" (black or nothing = light off).
   _lightColor(session, color) {
     if (color !== 'sensor') return color;
-    for (const dev of session.ports.values()) if (dev.kind === 'color') return dev.color > 0 ? dev.color : 0;
+    for (const dev of session.ports.values()) {
+      if (dev.kind === 'color') {
+        const c = sensorColor(dev);
+        return c > 0 ? c : 0;
+      }
+    }
     throw new Error('Renk sensörü takılı değil.');
   }
 
@@ -254,7 +262,7 @@ export class Runner {
           this._check();
           const dev = s.deviceAt(cmd.port);
           if (!dev) throw new Error('Renk sensörü çıkarıldı.');
-          seen = dev.color === cmd.color ? seen + 1 : 0;
+          seen = sensorColor(dev) === cmd.color ? seen + 1 : 0;
           if (seen < 2) await this._sleep(POLL_MS);
         }
         return;

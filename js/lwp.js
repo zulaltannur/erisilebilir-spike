@@ -42,6 +42,14 @@ const SNAPSHOT_MS = 200;
 const STARTUP_SETTLE_MS = 600;
 const COMMAND_TIMEOUT_MS = 15000;
 
+function mostCommon(list) {
+  const counts = new Map();
+  for (const c of list) counts.set(c, (counts.get(c) || 0) + 1);
+  let best = list[list.length - 1];
+  for (const [c, n] of counts) if (n > counts.get(best)) best = c;
+  return best;
+}
+
 const kindOf = (type) => {
   if (MOTOR_TYPES.has(type)) return 'motor';
   if (type === COLOR_SENSOR) return 'color';
@@ -292,6 +300,10 @@ export class LwpSession {
           const b = v.getInt16(p + 5, true);
           dev.hsv = { h, s, v: b };
           dev.color = colorFromHsv(h, s, b);
+          // The sensor flickers for a moment when a brick moves. Programs use the color
+          // seen most often in the last few readings, so a single odd reading is ignored.
+          dev.recent = [...(dev.recent || []), dev.color].slice(-5);
+          dev.stableColor = mostCommon(dev.recent);
         }
         break;
       }

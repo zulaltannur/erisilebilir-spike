@@ -247,7 +247,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(700)
     out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9}, {'type': 'sound', 'sound': 'beep'},
                        {'type': 'else'}, {'type': 'sound', 'sound': 'drop'}, {'type': 'ifEnd'}], 1000)
-    expect('Eğer renk sensörü B kırmızı görüyorsa: hayır.' in out and page.evaluate('window.__lastSound') == 'drop', 'eğer: değilse dalı')
+    expect(any('Eğer renk sensörü B kırmızı görüyorsa: hayır, sensör şu an koyu mavi görüyor.' in x for x in out) and page.evaluate('window.__lastSound') == 'drop', 'eğer: değilse dalı')
 
     out = run_program([{'type': 'repeatStart', 'forever': 'yes', 'times': 3}, {'type': 'wait', 'seconds': 0.3}, {'type': 'repeatEnd'}], 1100)
     page.keyboard.press('Escape')
