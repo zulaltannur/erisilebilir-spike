@@ -42,12 +42,14 @@ const SNAPSHOT_MS = 200;
 const STARTUP_SETTLE_MS = 600;
 const COMMAND_TIMEOUT_MS = 15000;
 
-function mostCommon(list) {
-  const counts = new Map();
-  for (const c of list) counts.set(c, (counts.get(c) || 0) + 1);
-  let best = list[list.length - 1];
-  for (const [c, n] of counts) if (n > counts.get(best)) best = c;
-  return best;
+// The color a program should use: a new color counts once the sensor has kept seeing
+// it for STABLE_MS. That ignores a single odd reading while a brick moves, but reacts
+// almost at once (the sensor itself only reports when something changes).
+export const STABLE_MS = 100;
+export function stableColor(dev) {
+  if (dev.colorSince === undefined) return dev.color;
+  if (Date.now() - dev.colorSince >= STABLE_MS) return dev.color;
+  return dev.prevStable !== undefined ? dev.prevStable : dev.color;
 }
 
 const kindOf = (type) => {
@@ -304,7 +306,12 @@ export class LwpSession {
           const s = v.getInt16(p + 3, true);
           const b = v.getInt16(p + 5, true);
           dev.hsv = { h, s, v: b };
-          dev.color = colorFromHsv(h, s, b);
+          const c = colorFromHsv(h, s, b);
+          if (c !== dev.color) {
+            dev.prevStable = stableColor(dev);
+            dev.color = c;
+            dev.colorSince = Date.now();
+          }
         }
         break;
       }
@@ -330,14 +337,7 @@ export class LwpSession {
 
   _emitSnapshot() {
     if (!this.ready) return;
-    // The sensor only reports changes, and flickers for a moment when a brick moves.
-    // Every 200 ms we note the current color; programs use the color seen in at least
-    // two of the last three notes (about 0.4 s), so one odd reading is ignored.
-    for (const dev of this.ports.values()) {
-      if (dev.kind !== 'color') continue;
-      dev.recent = [...(dev.recent || []), dev.color].slice(-3);
-      dev.stableColor = mostCommon(dev.recent);
-    }
+
     const list = [];
     if (this.battery != null) list.push({ kind: 'battery', level: this.battery });
     for (const dev of this.ports.values()) {

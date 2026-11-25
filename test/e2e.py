@@ -390,6 +390,18 @@ with sync_playwright() as p:
     out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 3}, {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}], 900)
     expect('Program bitti.' in out and any('İpucu: Eğer bloğu sadece bir kez' in x for x in out), 'tek Eğer: bir kez çalıştı, ipucu verildi')
 
+    # A loop reacts quickly to a new color (well under half a second)
+    page.evaluate('window.__fake.color = 3')
+    page.wait_for_timeout(500)
+    page.evaluate("window.__lastSound = null")
+    run_program([{'type': 'repeatStart', 'mode': 'forever', 'times': 3}, {'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9},
+                 {'type': 'sound', 'sound': 'beep'}, {'type': 'ifEnd'}, {'type': 'repeatEnd'}], 300)
+    page.evaluate('window.__t0 = performance.now(); window.__fake.color = 9')
+    waited = page.evaluate("new Promise(r => { const t = setInterval(() => { if (window.__lastSound === 'beep') { clearInterval(t); r(performance.now() - window.__t0); } }, 10); setTimeout(() => r(9999), 3000); })")
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
+    expect(waited < 350, f'hızlı tepki: renk {int(waited)} ms içinde fark edildi')
+
     # "Bir renk görülene kadar tekrarla"
     page.evaluate('window.__fake.color = 3')
     page.wait_for_timeout(600)

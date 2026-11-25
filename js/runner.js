@@ -5,7 +5,7 @@
 import { parse, describe, PATTERNS, repeatMode } from './program-model.js';
 import { PORT_NAMES, COLORS } from './texts.js';
 
-const sensorColor = (dev) => (dev.stableColor !== undefined ? dev.stableColor : dev.color);
+import { stableColor as sensorColor } from './lwp.js';
 import { playProgramSound, playNote, speak, stopSpeaking } from './sounds.js';
 
 const POLL_MS = 50;

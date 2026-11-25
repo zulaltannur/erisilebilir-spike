@@ -16,7 +16,7 @@ const LOW_BATTERY = 20;
 const MOTOR_MOVE_THRESHOLD = 3; // degrees between two updates
 const MOTOR_STILL_COUNT = 2; // updates without movement = stopped
 const MOTOR_TURN_MIN = 10; // degrees: smaller movements are jitter, not a turn
-const COLOR_CONFIRM_COUNT = 3; // same new color this many updates in a row (about 0.6 s)
+const COLOR_CONFIRM_COUNT = 2; // same new color this many updates in a row (about 0.4 s)
 
 const hub = new Hub();
 const announcer = new Announcer({
@@ -760,7 +760,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.14';
+const APP_VERSION = '2026-11-25.15';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {
