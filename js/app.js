@@ -14,6 +14,7 @@ const PROGRAM_SLOT = 0;
 const LOW_BATTERY = 20;
 const MOTOR_MOVE_THRESHOLD = 3; // degrees between two updates
 const MOTOR_STILL_COUNT = 2; // updates without movement = stopped
+const MOTOR_TURN_MIN = 10; // degrees: smaller movements are jitter, not a turn
 const COLOR_CONFIRM_COUNT = 3; // same new color this many updates in a row (about 0.6 s)
 
 const hub = new Hub();
@@ -29,6 +30,7 @@ const state = {
   ports: [null, null], // latest device on port A and B
   motorMoving: [false, false],
   motorStill: [0, 0],
+  motorRest: [null, null], // position where each motor last rested
   confirmedColor: [null, null], // color shown and announced
   pendingColor: [null, null], // new color waiting for confirmation
   pendingCount: [0, 0],
@@ -217,21 +219,29 @@ hub.addEventListener('devices', (e) => {
       say(T.attached(p, DEVICE_NAMES[after.kind] || after.kind));
     }
 
-    // Motor turned by hand (or by a program) and then held still
+    // Motor turned by hand (or by a program) and then held still.
+    // A real motor jitters a few degrees on its own, so only a real turn counts:
+    // at least MOTOR_TURN_MIN degrees away from where it last rested.
     if (after && after.kind === 'motor') {
-      const delta = before && before.kind === 'motor' ? Math.abs(after.position - before.position) : 0;
-      if (delta >= MOTOR_MOVE_THRESHOLD) {
+      if (!before || before.kind !== 'motor' || state.motorRest[i] === null) state.motorRest[i] = after.position;
+      const step = before && before.kind === 'motor' ? Math.abs(after.position - before.position) : 0;
+      const away = Math.abs(after.position - state.motorRest[i]);
+      if (step >= MOTOR_MOVE_THRESHOLD && away >= MOTOR_TURN_MIN) {
         state.motorMoving[i] = true;
         state.motorStill[i] = 0;
       } else if (state.motorMoving[i]) {
         state.motorStill[i] += 1;
         if (state.motorStill[i] >= MOTOR_STILL_COUNT) {
           state.motorMoving[i] = false;
+          state.motorRest[i] = after.position;
           const justFinished = Date.now() - state.programEndedAt < 1500;
           if (!state.programRunning && !justFinished) {
             say(T.motorStopped(p, normalizeDegrees(after.absPosition)));
           }
         }
+      } else if (step < MOTOR_MOVE_THRESHOLD) {
+        // small jitter while resting: follow it slowly so drift is not announced later
+        state.motorRest[i] = after.position;
       }
     }
 
@@ -636,7 +646,7 @@ setConnectedUI(false);
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.3';
+const APP_VERSION = '2026-11-25.4';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

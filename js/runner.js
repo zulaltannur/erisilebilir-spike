@@ -32,8 +32,10 @@ export class Runner {
     this.finishedByCommand = false;
     this.step = 0;
     this.speed = 50;
+    this.background = []; // commands running "together with the next one"
     try {
       await this._nodes(tree);
+      await this._waitBackground();
       this.running = false;
       this.onDone(!this.stopRequested || this.finishedByCommand);
     } catch (err) {
@@ -112,7 +114,7 @@ export class Runner {
       }
       case 'parallel': {
         this.onInfo(node.index, `Aynı anda ${node.body.length} komut başlıyor.`);
-        await Promise.all(node.body.map((child) => this._command(child)));
+        await Promise.all(node.body.map((child) => this._command(child, { inParallel: true })));
         return undefined;
       }
       default:
@@ -132,11 +134,23 @@ export class Runner {
     return dev;
   }
 
-  async _command(node) {
+  async _command(node, { inParallel = false } = {}) {
     const { cmd, index } = node;
     this.step += 1;
     this.onStep(index, this.step, describe(cmd));
+    if (cmd.together === 'yes' && !inParallel) {
+      // Start it and go straight on to the next command; errors surface at the end.
+      this.background.push(this._exec(cmd).catch((err) => err));
+      return;
+    }
     await this._exec(cmd);
+  }
+
+  async _waitBackground() {
+    const results = await Promise.all(this.background);
+    this.background = [];
+    const err = results.find((r) => r instanceof Error && !(r instanceof StopSignal));
+    if (err) throw err;
   }
 
   // ---------- Commands ----------

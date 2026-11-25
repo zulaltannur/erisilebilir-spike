@@ -269,6 +269,30 @@ with sync_playwright() as p:
     goto = [m for m in page.evaluate('window.__lwpSent') if len(m) > 9 and m[2] == 0x81 and m[5] == 0x0b][-1]
     expect('Program bitti.' in out, 'motoru konuma getir ' + json.dumps(goto))
 
+    # "Together with the next command": both start at once, the program waits for both
+    page.evaluate('p => window.__erisilebilir.editor.replaceProgram(p, "")',
+                  [{'type': 'motorRun', 'port': 0, 'amount': 1, 'unit': 'rotations', 'direction': 'cw', 'together': 'yes'},
+                   {'type': 'sound', 'sound': 'beep'}])
+    start = len(said())
+    page.focus('#program-liste')
+    page.keyboard.press('Control+Enter')
+    page.wait_for_timeout(450)
+    early = said()[start:]
+    expect(any('Adım 2: Ses çal: bip' in x for x in early) and 'Program bitti.' not in early,
+           'birlikte: ikinci komut motoru beklemeden başladı ' + json.dumps(early, ensure_ascii=False))
+    page.wait_for_timeout(1200)
+    expect('Program bitti.' in said()[start:], 'birlikte: program ikisi de bitince bitti')
+    expect(any('sonraki komutla birlikte' in x for x in said()[start:]), 'birlikte: komut metninde söyleniyor')
+
+    # Small jitter of a resting motor is not announced
+    page.wait_for_timeout(500)
+    start = len(said())
+    for d in [3, -4, 4, -3, 2]:
+        page.evaluate(f'window.__fake.motorPos += {d}')
+        page.wait_for_timeout(250)
+    page.wait_for_timeout(600)
+    expect(not any('durdu' in x for x in said()[start:]), 'motor titremesi duyurulmadı')
+
     # A motor left turning: the end message says so, and Durdur stops it even with no program running
     out = run_program([{'type': 'motorStart', 'port': 0, 'direction': 'cw'}, {'type': 'speed', 'percent': 70}], 600)
     expect(any('Motor A hâlâ dönüyor' in x for x in out), 'sürekli motor: program sonunda uyarı ' + json.dumps(out, ensure_ascii=False))
