@@ -16,6 +16,8 @@ export { tiltWords } from './tiltcal.js';
 
 class StopSignal extends Error {}
 
+const SHAKE_WORDS = { forwardBack: 'Hub öne-arkaya sallandı', sideways: 'Hub sağa-sola sallandı' };
+
 export class Runner {
   constructor({ getSession, onStep, onRound, onInfo, onDone, onError }) {
     this.getSession = getSession;
@@ -188,12 +190,23 @@ export class Runner {
         return { value: heads, detail: heads ? 'yazı geldi' : 'tura geldi' };
       }
       case 'hubShaken':
-      case 'hubTapped':
+      case 'hubShakenFB':
+      case 'hubShakenLR': {
+        const s = this._session();
+        const dir = { hubShakenFB: 'forwardBack', hubShakenLR: 'sideways' }[cond];
+        const yes = s.recentShake(dir);
+        const g = s.gesture;
+        const how = (x) => SHAKE_WORDS[x && x.dir] || 'Hub sallandı';
+        let detail = 'hareket yok';
+        if (yes) detail = how(g);
+        else if (s.recentGesture('shake')) detail = how(g) + ', başka yöne';
+        return { value: yes, detail };
+      }
       case 'hubPutDown': {
         const s = this._session();
-        const kind = { hubShaken: 'shake', hubTapped: 'tap', hubPutDown: 'bump' }[cond];
+        const kind = { hubTapped: 'tap', hubPutDown: 'bump' }[cond];
         const yes = s.recentGesture(kind);
-        const words = { shake: 'Hub sallandı', tap: 'Hub\'a vuruldu', bump: 'Hub bir yere konuldu' }[kind];
+        const words = { tap: 'Hub\'a vuruldu', bump: 'Hub bir yere konuldu' }[kind];
         return { value: yes, detail: yes ? words : 'hareket yok' };
       }
       case 'hubTilted':

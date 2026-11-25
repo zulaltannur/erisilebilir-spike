@@ -33,6 +33,7 @@ const GESTURE_MEMORY_MS = 700; // a tap or shake counts for this long
 const TAP_STILL_MS = 800;
 const TAP_AFTER_MS = 300;
 const TAP_MAX_MOVE_DEG = 10;
+const SHAKE_LOOK_MS = 1200; const SHAKE_MIN_SWING_DEG = 8; const SHAKE_AXIS_RATIO = 1.5;
 
 // Device type ids -> our device kinds
 const MOTOR_TYPES = new Set([0x26, 0x2e, 0x2f, 0x30, 0x31, 0x41, 0x4b, 0x4c]);
@@ -222,6 +223,26 @@ export class LwpSession {
     return moved < TAP_MAX_MOVE_DEG ? 'tap' : 'bump';
   }
 
+  // Which way the Hub was shaken, from how much it rocked around each axis just before
+  // and around the shake signal: 'forwardBack' (pitch swings), 'sideways' (roll swings)
+  // or null when it is not clear.
+  _shakeDirection(at) {
+    const around = this.tiltHistory.filter((x) => x.at >= at - SHAKE_LOOK_MS && x.at <= at + TAP_AFTER_MS);
+    if (around.length < 2) return null;
+    const range = (key) => Math.max(...around.map((x) => x[key])) - Math.min(...around.map((x) => x[key]));
+    const fb = range('pitch');
+    const lr = range('roll');
+    if (Math.max(fb, lr) < SHAKE_MIN_SWING_DEG) return null;
+    if (fb >= lr * SHAKE_AXIS_RATIO) return 'forwardBack';
+    if (lr >= fb * SHAKE_AXIS_RATIO) return 'sideways';
+    return null;
+  }
+
+  // True if the Hub was shaken a moment ago; with a direction, only that way.
+  recentShake(dir) {
+    return this.recentGesture('shake') && (!dir || this.gesture.dir === dir);
+  }
+
   // True if the Hub reported this gesture a moment ago: 'tap', 'bump' or 'shake'.
   recentGesture(kind) {
     return !!(this.gesture && this.gesture.kind === kind && Date.now() - this.gesture.at < GESTURE_MEMORY_MS);
@@ -329,12 +350,13 @@ export class LwpSession {
         }
         if (port === GESTURE_PORT) {
           const code = m[p + 1];
-          if (code === 3) this.gesture = { code, kind: 'shake', at: Date.now() };
-          else if (code) {
-            // Decide a moment later: lifting the Hub can send this signal just before it tilts.
+          if (code) {
+            // Decide a moment later: lifting the Hub can send the tap signal just before it
+            // tilts, and the swing of a shake may still be going on.
             const at = Date.now();
             setTimeout(() => {
-              this.gesture = { code, kind: this._tapOrBump(at), at };
+              if (code === 3) this.gesture = { code, kind: 'shake', dir: this._shakeDirection(at), at };
+              else this.gesture = { code, kind: this._tapOrBump(at), at };
               this._emitSnapshot();
             }, TAP_AFTER_MS);
           }

@@ -63,13 +63,15 @@ export const CONDITIONS = {
   hubRight: 'Hub sağa eğik',
   hubSide: 'Hub yana eğik (sola ya da sağa)',
   hubUpsideDown: 'Hub ters çevrilmiş',
-  hubShaken: 'Hub sallandı',
+  hubShaken: 'Hub sallandı (herhangi bir yöne)',
+  hubShakenFB: 'Hub öne-arkaya sallandı',
+  hubShakenLR: 'Hub sağa-sola sallandı',
   hubTapped: 'Hub\'a parmakla vuruldu',
   hubPutDown: 'Hub bir yere konuldu ya da çarptı',
 };
 // Which part a condition needs (null = none)
 export const CONDITION_DEVICE = { colorSees: 'color', colorAny: 'color', motorTurning: 'motor', motorAngle: 'motor', timer: null, random: null,
-  hubTilted: null, hubForward: null, hubBackward: null, hubLeft: null, hubRight: null, hubSide: null, hubUpsideDown: null, hubShaken: null, hubTapped: null, hubPutDown: null };
+  hubTilted: null, hubForward: null, hubBackward: null, hubLeft: null, hubRight: null, hubSide: null, hubUpsideDown: null, hubShaken: null, hubShakenFB: null, hubShakenLR: null, hubTapped: null, hubPutDown: null };
 // Older programs stored only color conditions ("sees": 'yes' | 'no').
 export const condOf = (cmd) => cmd.cond || 'colorSees';
 export const negated = (cmd) => (cmd.negate ? cmd.negate === 'yes' : cmd.sees === 'no');
@@ -80,7 +82,7 @@ const conditionFields = (negateLabel, positive, negative) => [
   { ...colorField('Hangi renk'), showIf: ['colorSees'] },
   { key: 'angle', label: 'Kaç dereceden büyük (0 ile 359 arası)', type: 'number', min: 0, max: 359, step: 1, showIf: ['motorAngle'] },
   { key: 'seconds', label: 'Kaç saniye', type: 'number', min: 0.1, max: 600, step: 0.1, showIf: ['timer'] },
-  { key: 'holdNote', type: 'note', text: HOLD_TEXT, showIf: ['hubForward', 'hubBackward', 'hubLeft', 'hubRight', 'hubSide', 'hubTilted'] },
+  { key: 'holdNote', type: 'note', text: HOLD_TEXT, showIf: ['hubForward', 'hubBackward', 'hubLeft', 'hubRight', 'hubSide', 'hubTilted', 'hubShakenFB', 'hubShakenLR'] },
   { key: 'negate', label: negateLabel, type: 'choice', options: { no: positive, yes: negative } },
 ];
 const conditionDefaults = { cond: 'colorSees', port: 1, color: 9, angle: 90, seconds: 5, negate: 'no' };
@@ -117,6 +119,10 @@ export function conditionText(cmd) {
       return 'Hub ters çevrilmiş';
     case 'hubShaken':
       return 'Hub sallandı';
+    case 'hubShakenFB':
+      return 'Hub öne-arkaya sallandı';
+    case 'hubShakenLR':
+      return 'Hub sağa-sola sallandı';
     case 'hubTapped':
       return 'Hub\'a vuruldu';
     case 'hubPutDown':

@@ -284,7 +284,7 @@ hub.addEventListener('devices', (e) => {
     const g = hub.lwp.gesture;
     if (g && g.at !== state.lastGestureAt) {
       state.lastGestureAt = g.at;
-      if (g.kind === 'shake') say('Hub sallandı.');
+      if (g.kind === 'shake') say({ forwardBack: 'Hub öne-arkaya sallandı.', sideways: 'Hub sağa-sola sallandı.' }[g.dir] || 'Hub sallandı.');
       if (g.kind === 'tap') say('Hub\'a vuruldu.');
     }
     const t = hub.lwp.tilt;
@@ -790,7 +790,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.22';
+const APP_VERSION = '2026-11-25.23';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

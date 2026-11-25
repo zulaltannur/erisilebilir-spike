@@ -3,6 +3,7 @@
   const said = [];
   window.__said = said;
   const state = { battery: 80, motorPos: 0, color: 3, colorAttached: true, pitch: 2, roll: 1 };
+  window.__shake = async (axis) => { for (const v of [20, -20, 20, -20, 0]) { state[axis] = v; await new Promise((r) => setTimeout(r, 120)); } window.__gesture(3); };
   window.__gesture = (code) => { lwpSend([0x45, 0x5f, code]); setTimeout(() => lwpSend([0x45, 0x5f, 0]), 100); };
   window.__fake = state;
 
