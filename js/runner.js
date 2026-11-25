@@ -111,7 +111,8 @@ export class Runner {
             if (mode === 'until') {
               const { yes } = this._condition(node.cmd);
               if (yes) {
-                this.onInfo(node.index, `${describe(node.cmd)}: renk görüldü, tekrar bitti.`, false);
+                const why = node.cmd.sees === 'no' ? 'renk artık görülmüyor' : 'renk görüldü';
+                this.onInfo(node.index, `${describe(node.cmd)}: ${why}, tekrar bitti.`, false);
                 break;
               }
             }
@@ -128,7 +129,7 @@ export class Runner {
       }
       case 'if': {
         const { yes, seen } = this._condition(node.cmd);
-        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : `hayır, sensör şu an ${seen} görüyor`}.`, this.foreverDepth > 0);
+        this.onInfo(node.index, `${describe(node.cmd)}: ${yes ? 'evet' : 'hayır'}, sensör şu an ${seen} görüyor.`, this.foreverDepth > 0);
         return this._nodes(yes ? node.then : node.otherwise);
       }
       case 'parallel': {
@@ -145,7 +146,8 @@ export class Runner {
     const session = this._session();
     const dev = this._device(session, cmd.port, 'color', 'renk sensörü');
     const color = sensorColor(dev);
-    return { yes: color === cmd.color, seen: color >= 0 ? COLORS[color] || 'bir renk' : 'hiçbir renk' };
+    const matches = color === cmd.color;
+    return { yes: cmd.sees === 'no' ? !matches : matches, seen: color >= 0 ? COLORS[color] || 'bir renk' : 'hiçbir renk' };
   }
 
   // A light color, or "what the color sensor sees" (black or nothing = light off).
@@ -284,7 +286,8 @@ export class Runner {
           this._check();
           const dev = s.deviceAt(port);
           if (!dev) throw new Error('Renk sensörü çıkarıldı.');
-          seen = sensorColor(dev) === cmd.color ? seen + 1 : 0;
+          const matches = sensorColor(dev) === cmd.color;
+          seen = (cmd.sees === 'no' ? !matches : matches) ? seen + 1 : 0;
           if (seen < 2) await this._sleep(POLL_MS);
         }
         return;

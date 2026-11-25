@@ -46,6 +46,10 @@ const whenField = {
   options: { loop: 'Sürekli kontrol et (Sonsuza kadar tekrarla bloğuna koy)', once: 'Sadece bir kez, program o satıra gelince' },
   addOnly: true,
 };
+// "sees" turns a color condition around: 'yes' = the sensor sees the color,
+// 'no' = it does not (for example "if it does not see red, do X").
+const seesField = (label, yes, no) => ({ key: 'sees', label, type: 'choice', options: { yes, no } });
+const seesNot = (cmd) => cmd.sees === 'no';
 export const repeatMode = (cmd) => cmd.mode || (cmd.forever === 'yes' ? 'forever' : 'times');
 const colorText = (c) => (c === 'sensor' ? 'renk sensörünün gördüğü renk' : COLORS[c]);
 const hubColors = { 0: 'kapalı', ...realColors };
@@ -151,9 +155,13 @@ export const COMMAND_TYPES = {
   },
   waitColor: {
     group: 'wait',
-    name: 'Renk görene kadar bekle',
-    fields: [portField, colorField('Hangi renk')],
-    defaults: { port: 1, color: 9 },
+    name: 'Renge göre bekle',
+    fields: [
+      portField,
+      colorField('Hangi renk'),
+      seesField('Ne zamana kadar beklesin?', 'bu rengi görene kadar', 'bu rengi artık görmeyene kadar'),
+    ],
+    defaults: { port: 1, color: 9, sees: 'yes' },
   },
   // ---- Control flow
   // Three kinds of loop. All are stored as "repeatStart" with a mode; the other two
@@ -174,10 +182,14 @@ export const COMMAND_TYPES = {
   },
   repeatUntilStart: {
     group: 'control',
-    name: 'Bir renk görülene kadar tekrarla',
+    name: 'Renge göre tekrarla',
     alias: 'repeatStart',
-    fields: [{ ...portField, label: 'Renk sensörünün portu' }, colorField('Bu renk görülünce tekrar bitsin')],
-    defaults: { mode: 'until', times: 3, port: 1, color: 9 },
+    fields: [
+      { ...portField, label: 'Renk sensörünün portu' },
+      colorField('Hangi renk'),
+      seesField('Ne zamana kadar tekrarlasın?', 'bu renk görülene kadar', 'bu renk görüldüğü sürece'),
+    ],
+    defaults: { mode: 'until', times: 3, port: 1, color: 9, sees: 'yes' },
   },
   repeatEnd: { group: 'control', name: 'Tekrar sonu', fields: [], defaults: {}, hidden: true },
   ifStart: {
@@ -186,24 +198,26 @@ export const COMMAND_TYPES = {
     block: 'if',
     fields: [
       { ...portField, label: 'Renk sensörünün portu' },
-      colorField('Renk sensörü bu rengi görüyorsa'),
+      colorField('Hangi renk'),
+      seesField('Koşul', 'renk sensörü bu rengi görüyorsa', 'renk sensörü bu rengi görmüyorsa'),
       whenField,
     ],
-    defaults: { condition: 'colorIs', port: 1, color: 9 },
+    defaults: { condition: 'colorIs', port: 1, color: 9, sees: 'yes' },
   },
-  // Adds "Eğer", "Değilse" and "Eğer sonu" together; never stored as its own command.
+  // Adds "Eğer", "Aksi halde" and "Eğer sonu" together; never stored as its own command.
   ifElseStart: {
     group: 'control',
-    name: 'Eğer / değilse',
+    name: 'Eğer / aksi halde',
     block: 'ifelse',
     fields: [
       { ...portField, label: 'Renk sensörünün portu' },
-      colorField('Renk sensörü bu rengi görüyorsa'),
+      colorField('Hangi renk'),
+      seesField('Koşul', 'renk sensörü bu rengi görüyorsa', 'renk sensörü bu rengi görmüyorsa'),
       whenField,
     ],
-    defaults: { port: 1, color: 9 },
+    defaults: { port: 1, color: 9, sees: 'yes' },
   },
-  else: { group: 'control', name: 'Değilse', fields: [], defaults: {}, hidden: true },
+  else: { group: 'control', name: 'Aksi halde', fields: [], defaults: {}, hidden: true },
   ifEnd: { group: 'control', name: 'Eğer sonu', fields: [], defaults: {}, hidden: true },
   parallelStart: { group: 'control', name: 'Aynı anda yap', block: 'parallel', fields: [], defaults: {} },
   parallelEnd: { group: 'control', name: 'Aynı anda sonu', fields: [], defaults: {}, hidden: true },
@@ -255,17 +269,23 @@ export function describe(cmd) {
     case 'wait':
       return `${fmt(cmd.seconds)} saniye bekle`;
     case 'waitColor':
-      return `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar bekle`;
+      return seesNot(cmd)
+        ? `Renk sensörü ${p} artık ${COLORS[cmd.color]} görmeyene kadar bekle`
+        : `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar bekle`;
     case 'repeatStart':
       if (repeatMode(cmd) === 'forever') return 'Sonsuza kadar tekrarla';
-      if (repeatMode(cmd) === 'until') return `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar tekrarla`;
+      if (repeatMode(cmd) === 'until') {
+        return seesNot(cmd)
+          ? `Renk sensörü ${p} ${COLORS[cmd.color]} gördüğü sürece tekrarla`
+          : `Renk sensörü ${p} ${COLORS[cmd.color]} görene kadar tekrarla`;
+      }
       return `Tekrarla ${cmd.times} kez`;
     case 'repeatEnd':
       return 'Tekrar sonu';
     case 'ifStart':
-      return `Eğer renk sensörü ${p} ${COLORS[cmd.color]} görüyorsa`;
+      return `Eğer renk sensörü ${p} ${COLORS[cmd.color]} ${seesNot(cmd) ? 'görmüyorsa' : 'görüyorsa'}`;
     case 'else':
-      return 'Değilse';
+      return 'Aksi halde';
     case 'ifEnd':
       return 'Eğer sonu';
     case 'parallelStart':
@@ -349,7 +369,7 @@ export function parse(program) {
       const cmd = program[i];
       if (endTypes.includes(cmd.type)) return nodes;
       if (isBlockEnd(cmd.type)) fail(i, `${n(i)}: ${describe(cmd)} için bir başlangıç yok.`);
-      if (cmd.type === 'else') fail(i, `${n(i)}: Değilse, sadece bir Eğer bloğunun içinde kullanılabilir.`);
+      if (cmd.type === 'else') fail(i, `${n(i)}: Aksi halde, sadece bir Eğer bloğunun içinde kullanılabilir.`);
       if (cmd.type === 'repeatStart') {
         const start = i++;
         const body = parseUntil(['repeatEnd']);

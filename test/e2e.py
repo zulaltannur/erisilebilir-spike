@@ -65,7 +65,7 @@ with sync_playwright() as p:
     expect(has('Keşfet bölümündesiniz. Hub bağlı.'), 'W kısayolu')
 
     page.click('#calistir-btn', force=True)
-    page.wait_for_timeout(2200)
+    page.wait_for_function("window.__said.includes('Program bitti.')", timeout=8000)
     expect(has('Program başladı.'), 'program başladı')
     expect(has('Adım 1: Motor A bir tur dönüyor'), 'adım duyurusu')
     expect(has('Program bitti.'), 'program bitti')
@@ -242,7 +242,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(700)
     out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9}, {'type': 'sound', 'sound': 'beep'},
                        {'type': 'else'}, {'type': 'sound', 'sound': 'drop'}, {'type': 'ifEnd'}], 1000)
-    expect('Eğer renk sensörü B kırmızı görüyorsa: evet.' in out and page.evaluate('window.__lastSound') == 'beep', 'eğer: evet dalı')
+    expect(any('Eğer renk sensörü B kırmızı görüyorsa: evet, sensör şu an kırmızı görüyor.' in x for x in out) and page.evaluate('window.__lastSound') == 'beep', 'eğer: evet dalı')
     page.keyboard.press('Escape')
     page.wait_for_timeout(300)
     page.evaluate('window.__fake.color = 3')
@@ -334,12 +334,12 @@ with sync_playwright() as p:
 
     page.click('#program-temizle-btn')
     page.focus('#program-liste')
-    add('Eğer / değilse')
+    add('Eğer / aksi halde')
     add('Bilgisayardan ses çal')
     page.keyboard.press('ArrowDown')
     add('Bilgisayardan ses çal', {'select#alan-sound': 'drop'})
     texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
-    expect(texts[:7] == ['1. Sonsuza kadar tekrarla', '2. İçeride: Eğer renk sensörü B kırmızı görüyorsa', '3. 2 kat içeride: Ses çal: bip', '4. İçeride: Değilse', '5. 2 kat içeride: Ses çal: su damlası', '6. İçeride: Eğer sonu', '7. Tekrar sonu'],
+    expect(texts[:7] == ['1. Sonsuza kadar tekrarla', '2. İçeride: Eğer renk sensörü B kırmızı görüyorsa', '3. 2 kat içeride: Ses çal: bip', '4. İçeride: Aksi halde', '5. 2 kat içeride: Ses çal: su damlası', '6. İçeride: Eğer sonu', '7. Tekrar sonu'],
            'eğer/değilse: klavyeyle kuruldu ' + json.dumps(texts, ensure_ascii=False))
     page.evaluate('window.__fake.color = 3')
     page.wait_for_timeout(700)
@@ -411,6 +411,22 @@ with sync_playwright() as p:
     out = said()[-8:]
     expect(any('kırmızı görene kadar tekrarla: renk görüldü, tekrar bitti.' in x for x in out) and 'Program bitti.' in out, 'renk görülene kadar tekrarla ' + json.dumps(out, ensure_ascii=False))
 
+    # Negated conditions: "görmüyorsa", "artık görmeyene kadar", "gördüğü sürece"
+    page.evaluate('window.__fake.color = 3')
+    page.wait_for_timeout(500)
+    out = run_program([{'type': 'ifStart', 'condition': 'colorIs', 'port': 1, 'color': 9, 'sees': 'no'}, {'type': 'sound', 'sound': 'clap'}, {'type': 'ifEnd'}], 1300)
+    expect(any('Eğer renk sensörü B kırmızı görmüyorsa: evet' in x for x in out) and page.evaluate('window.__lastSound') == 'clap', 'görmüyorsa: kırmızı yokken çalıştı ' + json.dumps(out, ensure_ascii=False))
+    out = run_program([{'type': 'waitColor', 'port': 1, 'color': 3, 'sees': 'no'}, {'type': 'sound', 'sound': 'boing'}], 600)
+    expect(page.evaluate('window.__lastSound') != 'boing', 'artık görmeyene kadar bekle: renk varken bekliyor')
+    page.evaluate('window.__fake.color = 7')
+    page.wait_for_timeout(900)
+    expect(page.evaluate('window.__lastSound') == 'boing' and any('artık koyu mavi görmeyene kadar bekle' in x for x in said()[-8:]), 'artık görmeyene kadar bekle: renk gidince devam etti')
+    out = run_program([{'type': 'repeatStart', 'mode': 'until', 'times': 3, 'port': 1, 'color': 7, 'sees': 'no'}, {'type': 'wait', 'seconds': 0.2}, {'type': 'repeatEnd'}], 700)
+    page.evaluate('window.__fake.color = 6')
+    page.wait_for_timeout(1000)
+    out = said()[-8:]
+    expect(any('sarı gördüğü sürece tekrarla: renk artık görülmüyor, tekrar bitti.' in x for x in out) and 'Program bitti.' in out, 'gördüğü sürece tekrarla ' + json.dumps(out, ensure_ascii=False))
+
     # Adding "Eğer" with "Sadece bir kez": no loop is added
     page.click('#program-temizle-btn')
     page.focus('#program-liste')
@@ -420,13 +436,13 @@ with sync_playwright() as p:
     # Loop shortcuts in the command list
     page.click('#program-temizle-btn')
     page.focus('#program-liste')
-    add('Bir renk görülene kadar tekrarla')
+    add('Renge göre tekrarla')
     texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
     expect(texts[0] == '1. Renk sensörü B kırmızı görene kadar tekrarla' and texts[1] == '2. Tekrar sonu', 'döngü: renk görülene kadar eklendi ' + json.dumps(texts, ensure_ascii=False))
     page.keyboard.press('Home')
     page.keyboard.press('Enter')
     page.wait_for_timeout(150)
-    expect('Bir renk görülene kadar tekrarla' in page.inner_text('#komut-dialog-baslik') and page.is_visible('#alan-color'), 'döngü: düzenlerken kendi ayarları açıldı')
+    expect('Renge göre tekrarla' in page.inner_text('#komut-dialog-baslik') and page.is_visible('#alan-color'), 'döngü: düzenlerken kendi ayarları açıldı')
     page.keyboard.press('Escape')
     page.wait_for_timeout(100)
     # Smart default port: the color sensor is on B, so a new "Eğer" uses B

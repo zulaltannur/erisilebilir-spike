@@ -417,7 +417,7 @@ const runner = new Runner({
     editor.setRunning(index);
     // In an endless loop say "Eğer ...: evet / hayır" only when the answer changes.
     const key = `info-${index}`;
-    const answer = text.replace(/, sensör şu an .* görüyor/, '');
+    const answer = text.replace(/, sensör şu an .* görüyor\.$/, '');
     if (inEndlessLoop && repeatsItself(key, answer)) return;
     say(text);
   },
@@ -760,7 +760,7 @@ $('renk-sifirla-btn').addEventListener('click', () => {
 
 // ---------- New version notice ----------
 // The page tells the user once when a newer version has been published.
-const APP_VERSION = '2026-11-25.15';
+const APP_VERSION = '2026-11-25.16';
 let versionNoticeGiven = false;
 async function checkForUpdate() {
   try {

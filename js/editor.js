@@ -479,24 +479,24 @@ export class Editor {
       if ((cmd.type === 'ifElseStart' || cmd.type === 'ifStart') && keepWatching && !this._insideRepeat(at)) {
         // An "Eğer" on its own is checked only once, the moment the program reaches it.
         // Children expect it to keep watching the sensor, so it goes inside "Sonsuza kadar tekrarla".
-        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color };
+        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color, sees: cmd.sees || 'yes' };
         const inner = cmd.type === 'ifElseStart' ? [start, { type: 'else' }, { type: 'ifEnd' }] : [start, { type: 'ifEnd' }];
         const items = [{ type: 'repeatStart', mode: 'forever', times: 3 }, ...inner, { type: 'repeatEnd' }];
         this._change(
           () => this.program.splice(at, 0, ...items),
           `Eklendi: ${describe(start)}. Sensörü sürekli izlemesi için Sonsuza kadar tekrarla bloğunun içine kondu; ` +
             'program Escape ile durana kadar çalışır. Seçili satır Eğer. Şimdi A tuşuyla ekleyeceğiniz komutlar koşul doğruysa çalışır.' +
-            (cmd.type === 'ifElseStart' ? ' Değilse satırına gidip A tuşuna basarsanız eklenenler koşul yanlışsa çalışır.' : ''),
+            (cmd.type === 'ifElseStart' ? ' Aksi halde satırına gidip A tuşuna basarsanız eklenenler koşul doğru değilse çalışır.' : ''),
           at + 1,
         );
       } else if (cmd.type === 'ifElseStart') {
-        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color };
+        const start = { type: 'ifStart', condition: 'colorIs', port: cmd.port, color: cmd.color, sees: cmd.sees || 'yes' };
         const items = [start, { type: 'else' }, { type: 'ifEnd' }];
         this._change(
           () => this.program.splice(at, 0, ...items),
-          `Eklendi: ${at + 1}. ${describe(start)}, ${at + 2}. Değilse, ${at + 3}. Eğer sonu. ` +
+          `Eklendi: ${at + 1}. ${describe(start)}, ${at + 2}. Aksi halde, ${at + 3}. Eğer sonu. ` +
             'Seçili satır Eğer. Şimdi A tuşuyla ekleyeceğiniz komutlar koşul doğruysa çalışır. ' +
-            'Değilse satırına gidip A tuşuna basarsanız eklenenler koşul yanlışsa çalışır.',
+            'Aksi halde satırına gidip A tuşuna basarsanız eklenenler koşul doğru değilse çalışır.',
           at,
         );
       } else if (isBlockStart(cmd.type)) {
