@@ -267,8 +267,7 @@ export const COMMAND_TYPES = {
     defaults: { mode: 'until', times: 3, ...conditionDefaults },
   },
   repeatEnd: { group: 'control', name: 'Tekrar sonu', fields: [], defaults: {}, hidden: true },
-  // "Eğer" always comes with two parts: what to do if the condition is true, and
-  // "Değilse": what to do if it is not. Either part may stay empty.
+  // "Eğer": commands that run only if the condition is true.
   ifStart: {
     group: 'control',
     name: 'Eğer',
@@ -276,12 +275,11 @@ export const COMMAND_TYPES = {
     fields: [...conditionFields('', '', '', { withNegate: false }), whenField],
     defaults: { ...conditionDefaults },
   },
-  // Older name of the same thing; kept so saved programs still open.
+  // "Eğer / değilse": adds "Eğer", "Değilse" and "Eğer sonu" together; never stored as its own command.
   ifElseStart: {
     group: 'control',
-    name: 'Eğer',
+    name: 'Eğer / değilse',
     block: 'ifelse',
-    hidden: true,
     fields: [...conditionFields('', '', '', { withNegate: false }), whenField],
     defaults: { ...conditionDefaults },
   },

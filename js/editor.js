@@ -519,23 +519,24 @@ export class Editor {
         // An "Eğer" on its own is checked only once, the moment the program reaches it.
         // Children expect it to keep watching the sensor, so it goes inside "Sonsuza kadar tekrarla".
         const start = { ...cmd, type: 'ifStart', negate: 'no' };
-        const inner = [start, { type: 'else' }, { type: 'ifEnd' }];
+        const two = cmd.type === 'ifElseStart';
+        const inner = two ? [start, { type: 'else' }, { type: 'ifEnd' }] : [start, { type: 'ifEnd' }];
         const items = [{ type: 'repeatStart', mode: 'forever', times: 3 }, ...inner, { type: 'repeatEnd' }];
         this._change(
           () => this.program.splice(at, 0, ...items),
-          `Eklendi: ${describe(start)}, Değilse ve Eğer sonu. Sürekli kontrol etmesi için Sonsuza kadar tekrarla bloğunun içine kondu; ` +
-            'program Escape ile durana kadar çalışır. Seçili satır Eğer. Şimdi A tuşuyla ekleyeceğiniz komutlar koşul doğruysa çalışır. ' +
-            'Değilse satırına gidip A tuşuna basarsanız eklenenler koşul doğru değilse çalışır. İstemediğiniz kısmı boş bırakabilirsiniz.',
+          `Eklendi: ${describe(start)}${two ? ', Değilse' : ''} ve Eğer sonu. Sürekli kontrol etmesi için Sonsuza kadar tekrarla bloğunun içine kondu; ` +
+            'program Escape ile durana kadar çalışır. Seçili satır Eğer. Şimdi A tuşuyla ekleyeceğiniz komutlar koşul doğruysa çalışır.' +
+            (two ? ' Değilse satırına gidip A tuşuna basarsanız eklenenler koşul doğru değilse çalışır.' : ''),
           at + 1,
         );
-      } else if (cmd.type === 'ifElseStart' || cmd.type === 'ifStart') {
+      } else if (cmd.type === 'ifElseStart') {
         const start = { ...cmd, type: 'ifStart', negate: 'no' };
         const items = [start, { type: 'else' }, { type: 'ifEnd' }];
         this._change(
           () => this.program.splice(at, 0, ...items),
           `Eklendi: ${at + 1}. ${describe(start)}, ${at + 2}. Değilse, ${at + 3}. Eğer sonu. ` +
             'Seçili satır Eğer. Şimdi A tuşuyla ekleyeceğiniz komutlar koşul doğruysa çalışır. ' +
-            'Değilse satırına gidip A tuşuna basarsanız eklenenler koşul doğru değilse çalışır. İstemediğiniz kısmı boş bırakabilirsiniz.',
+            'Değilse satırına gidip A tuşuna basarsanız eklenenler koşul doğru değilse çalışır.',
           at,
         );
       } else if (isBlockStart(cmd.type)) {

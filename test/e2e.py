@@ -153,7 +153,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     expect(page.evaluate("document.getElementById('komut-dialog').open"), 'editör: ekleme penceresi açıldı')
     expect(page.evaluate("document.activeElement.textContent") == 'Motoru döndür', 'editör: odak ilk komut düğmesinde')
-    expect(page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length") == 20, 'editör: 20 komut listelendi')
+    expect(page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length") == 21, 'editör: 21 komut listelendi')
     page.add_script_tag(content=AXE)
     axe2 = page.evaluate("axe.run(document, {runOnly: ['wcag2a','wcag2aa','wcag21aa','wcag22aa','best-practice']})")
     v2 = [(v['id'], len(v['nodes'])) for v in axe2['violations']]
@@ -334,7 +334,7 @@ with sync_playwright() as p:
 
     page.click('#program-temizle-btn')
     page.focus('#program-liste')
-    add('Eğer')
+    add('Eğer / değilse')
     expect(not page.is_visible('#alan-negate') if page.query_selector('#alan-negate') else True, 'eğer: doğru/değil diye ayrı değer sorulmadı')
     add('Bilgisayardan ses çal')
     page.keyboard.press('ArrowDown')
@@ -533,7 +533,7 @@ with sync_playwright() as p:
     page.focus('#program-liste')
     add('Eğer', {'select#alan-when': 'once'})
     texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
-    expect(texts[0].startswith('1. Eğer') and texts[1] == '2. Değilse' and len(texts) == 4, 'eğer bir kez: tekrar eklenmedi ' + json.dumps(texts, ensure_ascii=False))
+    expect(texts[0].startswith('1. Eğer') and len(texts) == 3, 'eğer bir kez: tekrar eklenmedi ' + json.dumps(texts, ensure_ascii=False))
     # Loop shortcuts in the command list
     page.click('#program-temizle-btn')
     page.focus('#program-liste')
@@ -561,7 +561,7 @@ with sync_playwright() as p:
     add('Eğer')
     add('Bilgisayardan ses çal')
     texts = page.evaluate("[...document.querySelectorAll('#program-liste [role=option]')].map(o => o.textContent)")
-    expect(texts[:6] == ['1. Sonsuza kadar tekrarla', '2. İçeride: Eğer şu doğruysa: renk sensörü B kırmızı görüyor', '3. 2 kat içeride: Ses çal: bip', '4. İçeride: Değilse', '5. İçeride: Eğer sonu', '6. Tekrar sonu'],
+    expect(texts[:5] == ['1. Sonsuza kadar tekrarla', '2. İçeride: Eğer şu doğruysa: renk sensörü B kırmızı görüyor', '3. 2 kat içeride: Ses çal: bip', '4. İçeride: Eğer sonu', '5. Tekrar sonu'],
            'eğer: sonsuz tekrarın içine kondu ' + json.dumps(texts, ensure_ascii=False))
     page.evaluate('window.__fake.color = 3')
     page.wait_for_timeout(600)
@@ -603,7 +603,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     heads = page.evaluate("[...document.querySelectorAll('#komut-alanlar h3')].map(h => h.textContent)")
     count = page.evaluate("document.querySelectorAll('#komut-alanlar .komut-secici button').length")
-    expect(len(heads) == 5 and count == 20, f'seçici: 5 grup, {count} komut')
+    expect(len(heads) == 5 and count == 21, f'seçici: 5 grup, {count} komut')
     page.screenshot(path=os.path.join(HERE, 'picker.png'), full_page=True)
     page.keyboard.press('Escape')
 
